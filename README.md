@@ -1,10 +1,8 @@
-# Spring-SpringMVC-MyBatisPlus
-
 广义上的 Spring 泛指以 `Spring Framework` 为基础的 Spring 技术栈。
 
 Spring是一个由多个不同子项目（模块）组成的成熟技术，其包含了例如`Spring Framework`、`Spring MVC`、`SpringBoot`、`Spring Cloud`、`Spring Data`、`Spring Security` 等，其中 Spring Framework 是其他子项目的基础。
 
-## SpringFramework
+# SpringFramework
 
 Spring Framework（Spring框架）即是Spring技术栈的基础，Spring的其他框架均以 `SpringFramework` 框架为基础。
 
@@ -23,7 +21,9 @@ Spring Framework（Spring框架）即是Spring技术栈的基础，Spring的其�
 | TX             | 声明式事务管理。                                            |
 | Spring MVC     | 提供了面向Web应用程序的集成功能。                           |
 
-## SpringIoC
+# SpringIoC
+
+## 容器和核心概念
 
 ### 组件和组件管理
 
@@ -40,7 +40,9 @@ Spring Framework（Spring框架）即是Spring技术栈的基础，Spring的其�
 - 组件对象存活周期管理
 - ......
 
-需要注意的是：组件是映射到应用程序中所有可重用组件的Java对象，应该是可复用的功能对象！
+
+
+需要注意的是：组件是映射到应用程序中所有可重用组件的Java对象，应该是可复用的功能对象。
 
 即：**组件一定是对象，对象不一定是组件。**
 
@@ -48,7 +50,7 @@ Spring Framework（Spring框架）即是Spring技术栈的基础，Spring的其�
 
 综上所述，Spring就充当了组件容器，创建、管理、存储组件。
 
-### SpringIoC容器和容器实现
+### Spring IoC 容器和容器实现
 
 #### 简单容器和复杂容器
 
@@ -60,15 +62,15 @@ Spring Framework（Spring框架）即是Spring技术栈的基础，Spring的其�
 
 `SpringIoC` 容器也是一个复杂容器。它们不仅要负责创建组件的对象、存储组件的对象，还要负责调用组件的方法让它们工作，最终在特定情况下销毁组件。
 
-#### SpringIoC容器
+#### Spring IoC 容器
 
 Spring IoC 容器，负责实例化、配置和组装 bean（组件）。容器通过读取配置元数据来获取有关要实例化、配置和组装组件的指令。配置元数据以 XML、Java 注解或 Java 代码形式表现。它允许表达组成应用程序的组件以及这些组件之间丰富的相互依赖关系。
 
 #### 容器接口以及实现类
 
-##### SpringIoC容器接口
+##### Spring IoC 容器接口
 
-`BeanFactory` 接口提供了一种高级配置机制，能够管理任何类型的对象，它是SpringIoC容器标准化超接口。
+`BeanFactory` 接口提供了一种高级配置机制，能够管理任何类型的对象，它是Spring IoC 容器标准化超接口。
 
 `ApplicationContext` 是 `BeanFactory` 的子接口。它扩展了以下功能：
 
@@ -91,7 +93,7 @@ Spring IoC 容器，负责实例化、配置和组装 bean（组件）。容器�
 
 Spring框架提供了多种配置方式：XML配置方式、注解方式和Java配置类方式
 
-1. XML配置方式：是Spring框架最早的配置方式之一，通过在XML文件中定义Bean及其依赖关系、Bean的作用域等信息，让Spring IoC容器来管理Bean之间的依赖关系。该方式从Spring框架的第一版开始提供支持。
+1. XML配置方式：是Spring框架最早的配置方式之一，通过在XML文件中定义Bean及其依赖关系、Bean的作用域等信息，让Spring IoC 容器来管理Bean之间的依赖关系。该方式从Spring框架的第一版开始提供支持。
 2. 注解方式：从Spring 2.5版本开始提供支持，可以通过在Bean类上使用注解来代替XML配置文件中的配置信息。通过在Bean类上加上相应的注解（如@Component, @Service, @Autowired等），将Bean注册到Spring IoC容器中，这样Spring IoC容器就可以管理这些Bean之间的依赖关系。
 3. **Java配置类**方式：从Spring 3.0版本开始提供支持，通过Java类来定义Bean、Bean之间的依赖关系和配置信息，从而代替XML配置文件的方式。Java配置类是一种使用Java编写配置信息的方式，通过@Configuration、@Bean等注解来实现Bean和依赖关系的配置。 
 
@@ -104,3 +106,279 @@ IoC 主要是针对对象的创建和调用控制而言的，也就是说，当�
 #### **DI (Dependency Injection) 依赖注入**
 
 DI 是指在组件之间传递依赖关系的过程中，将依赖关系在容器内部进行处理，这样就不必在应用程序代码中硬编码对象之间的依赖关系，实现了对象之间的解耦合。在 Spring 中，DI 是通过 XML 配置文件或注解的方式实现的。它提供了三种形式的依赖注入：构造函数注入、Setter 方法注入和接口注入。
+
+## Spring IoC 实践和应用
+
+### SpringIoC / DI 实现步骤
+
+1. 配置元数据（配置）：即编写交给Spring IoC容器管理组件的信息。例如：
+
+   ```xml
+   <?xml version="1.0" encoding="UTF-8"?>
+   <!-- 此处要添加一些约束，配置文件的标签并不是随意命名 -->
+   <beans xmlns="http://www.springframework.org/schema/beans"
+     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+     xsi:schemaLocation="http://www.springframework.org/schema/beans
+       https://www.springframework.org/schema/beans/spring-beans.xsd">
+   
+     <bean id="..." [1] class="..." [2]>  
+       <!-- collaborators and configuration for this bean go here -->
+     </bean>
+   
+     <bean id="..." class="...">
+       <!-- collaborators and configuration for this bean go here -->
+     </bean>
+     <!-- more bean definitions go here -->
+   </beans>
+   ```
+
+2. 实例化 IoC 容器：提供给 `ApplicationContext` 构造函数的位置路径是资源字符串地址，允许容器从各种外部资源（如本地文件系统、Java CLASSPATH 等）加载配置元数据。例如：
+
+   ```java
+   //实例化ioc容器,读取外部配置文件,最终会在容器内进行ioc和di动作
+   ApplicationContext context = 
+              new ClassPathXmlApplicationContext("services.xml", "daos.xml");
+   ```
+
+3. 获取Bean（组件）：`ApplicationContext` 是一个高级工厂的接口，能够维护不同 bean 及其依赖项的注册表。通过使用方法        `T getBean(String name, Class requiredType)` ，可以检索 bean 的实例。例如：
+
+   ```java
+   //创建ioc容器对象，指定配置文件，ioc也开始实例组件对象
+   ApplicationContext context = new ClassPathXmlApplicationContext("services.xml", "daos.xml");
+   //获取ioc容器的组件对象
+   PetStoreService service = context.getBean("petStore", PetStoreService.class);
+   //使用组件对象
+   List<String> userList = service.getUsernameList();
+   ```
+
+### 基于XML配置方式管理组件
+
+#### 组件信息声明配置(IoC)
+
+##### 基于无参数构造函数
+
+直接声明即可
+
+```xml
+<bean id="happyComponent" class="com.atguigu.ioc.HappyComponent"/>
+```
+
+- bean标签：通过配置bean标签告诉IOC容器需要创建对象的组件信息
+- id属性：bean的唯一标识,方便后期获取Bean！
+- class属性：组件类的全限定符！
+- 注意：**要求当前组件类必须包含无参数构造函数**
+
+
+
+##### 基于静态工厂方法实例化
+
+需要额外声明静态工厂方法。
+
+```xml
+<bean id="clientService"
+  class="examples.ClientService"
+  factory-method="createInstance"/>
+```
+
+- class属性：指定工厂类的全限定符！
+- factory-method: 指定静态工厂方法，**该方法必须是static方法**。
+
+
+
+##### 基于实例工厂方法实例化
+
+先声明配置工厂类的组件信息，再通过指定非静态工厂对象和方法名来配置生成的ioc信息。
+
+```XML
+<!-- 将工厂类进行ioc配置 -->
+<bean id="serviceLocator" class="examples.DefaultServiceLocator">
+</bean>
+
+<!-- 根据工厂对象的实例工厂方法进行实例化组件对象 -->
+<bean id="clientService"
+  factory-bean="serviceLocator"
+  factory-method="createClientServiceInstance"/>
+```
+
+- factory-bean属性：指定当前容器中工厂Bean 的名称。
+- factory-method:  指定实例工厂方法名。**实例方法必须是非static的**。
+
+#### 组件依赖注入配置 (DI)
+
+可以理解为在Spring配置文件中新建对象并且声明，便于Spring统一管理。
+
+##### 基于构造函数的依赖注入(单个构造参数)
+
+用例：
+
+组件类如下：
+
+```java
+// 被引用组件类
+public class UserDao {
+}
+
+// 组件类	单参数
+public class UserService {
+    
+    private UserDao userDao;
+
+    public UserService(UserDao userDao) {
+        this.userDao = userDao;
+    }
+}
+```
+
+xml配置文件声明如下：
+
+```xml
+<!-- 引用和被引用的组件  必须全部在IoC容器 -->
+<!-- 被引用类bean声明 -->
+<bean id="userDao" class="com.qingmuy.ioc_02.UserDao" />
+
+<!-- 引入类bean声明 -->
+<bean id="userService" class="com.qingmuy.ioc_02.UserService" >
+    <!-- 构造参数传值 DI的配置
+        <constructor-arg    构造参数的 di配置
+            value   = 直接属性值 String name = "张三" int age = "18"
+            ref     = 引用其他的bean beanID值
+    -->
+    <!-- 构造函数引用 -->
+    <constructor-arg ref="userDao" />
+</bean>
+```
+
+注意：
+
+1. 如果调用了其他bean类，需要声明其他bean类
+2. 被调用的bean类的顺序和bean类的顺序没有前后关系，只要声明即可
+3. `constructor-arg`标签的两个属性值`value`和`ref`二选一
+   1. value：直接赋值
+   2. ref：引用其他bean类
+
+
+
+##### 基于构造函数的依赖注入(多构造参数)
+
+用例：
+
+组件类如下：
+
+```java
+// 被引用组件类
+public class UserDao {
+}
+
+// 组件类	包含多个参数
+public class UserService {
+    
+    private UserDao userDao;
+    
+    private int age;
+    
+    private String name;
+
+    public UserService(int age , String name ,UserDao userDao) {
+        this.userDao = userDao;
+        this.age = age;
+        this.name = name;
+    }
+}
+```
+
+xml配置文件声明如下：
+
+```xml
+<!-- 2.多个构造参数注入 -->
+<bean id="userService1" class="com.qingmuy.ioc_02.UserService" >
+    <!-- 方案1：构造参数的顺序填写值 value 直接赋值 ref 引用其他的beanid-->
+    <constructor-arg value="18" />
+    <constructor-arg value="张三" />
+    <constructor-arg ref="userDao" />
+</bean>
+
+<bean id="userService2" class="com.qingmuy.ioc_02.UserService" >
+    <!-- 方案2：构造参数的名称填写，不用考虑顺序 name = 构造参数的名字 [经常使用]-->
+    <constructor-arg name="name" value="张三" />
+    <constructor-arg name="age" value="18" />
+    <constructor-arg name="userDao" ref="userDao" />
+</bean>
+
+<bean id="userService3" class="com.qingmuy.ioc_02.UserService" >
+    <!-- 方案3：构造参数的参数的下角标指定填写，不用考虑顺序 index = 构造参数的下角标 从左到右 从0开始 [经常使用] -->
+    <constructor-arg index="0" value="18" />
+    <constructor-arg index="1" value="张三" />
+    <constructor-arg index="2" ref="userDao" />
+</bean>
+```
+
+注意：
+
+多参数注入时，需要对多个参数分别进行注明，三个方法：
+
+1. 按照组件类里的顺序进行赋值或引用
+2. 提前声明name参数，即属性值
+3. 提前声明下角标：即在组件类里的顺序，顺序从左到右，从0开始。
+
+
+
+##### 基于Setter方法依赖注入
+
+最常用的方法
+
+用例：
+
+组件类如下：
+
+```java
+// 被引用组件类
+public Class MovieFinder{
+
+}
+
+// 组件类	内含setter方法
+public class SimpleMovieLister {
+
+  private MovieFinder movieFinder;
+  
+  private String movieName;
+
+  public void setMovieFinder(MovieFinder movieFinder) {
+    this.movieFinder = movieFinder;
+  }
+  
+  public void setMovieName(String movieName){
+    this.movieName = movieName;
+  }
+
+  // business logic that actually uses the injected MovieFinder is omitted...
+}
+```
+
+xml配置文件声明如下：
+
+```xml
+<!-- 触发setter方法进行注入 -->
+<bean id="movieFinder" class="com.qingmuy.ioc_02.MovieFinder" />
+
+<bean id="simpleMovieLister" class="com.qingmuy.ioc_02.SimpleMovieLister" >
+    <!--
+        name -> 属性名 setter 方法的 去set和首字母小写的值  调用set方法的名
+            命名规则用例：setMovieFinder -> movieFinder
+        value | ref  二选一    value = 赋值  ref = 其他bean的Id
+    -->
+    <property name="movieFinder" ref="movieFinder" />
+    <property name="movieName" value="让子弹飞" />
+</bean>
+```
+
+注意：
+
+1. 组件内部需要含有setter方法
+2. 对于setter方法使用`property`标签给setter方法对应的属性赋值
+3. name属性代表set方法标识、ref代表引用bean的标识id、value属性代表基本属性值
+4. `proprety`标签的`name`属性必须为该属性名 setter 方法的 去“set"后将首字母小写的值
+
+### 基于注解方式管理组件
+
+### 基于配置类方式管理组件
