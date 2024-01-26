@@ -379,6 +379,85 @@ xml配置文件声明如下：
 3. name属性代表set方法标识、ref代表引用bean的标识id、value属性代表基本属性值
 4. `proprety`标签的`name`属性必须为该属性名 setter 方法的 去“set"后将首字母小写的值
 
+#### IoC容器创建与使用
+
+容器实例化的两种方法：
+
+```java
+//方式1:实例化并且指定配置文件
+//参数：String...locations 传入一个或者多个配置文件
+ApplicationContext context = new ClassPathXmlApplicationContext("services.xml", "daos.xml");
+
+//方式2:先实例化，再指定配置文件，最后刷新容器触发Bean实例化动作 [springmvc源码和contextLoadListener源码方式]
+ClassPathXmlApplicationContext context1 = new ClassPathXmlApplicationContext();
+//设置配置配置文件,方法参数为可变参数,可以设置一个或者多个配置
+context1.setConfigLocations("spring-03.xml");
+//后配置的文件,需要调用refresh方法,触发刷新配置
+context1.refresh();
+```
+
+Bean对象获取：
+
+```java
+//方式1: 根据id获取
+//没有指定类型,返回为Object,需要类型转化!
+HappyComponent happyComponent = (HappyComponent) context.getBean("happyComponent");
+
+//使用组件对象
+happyComponent.doWork();
+
+
+//方式2: 根据类型获取
+//根据类型获取,但是要求,同类型(当前类,或者之类,或者接口的实现类)只能有一个对象交给IoC容器管理
+//配置两个或者以上出现: org.springframework.beans.factory.NoUniqueBeanDefinitionException 问题
+HappyComponent happyComponent1 = context.getBean(HappyComponent.class);
+happyComponent1.doWork();
+
+
+//方式3: 根据id和类型获取
+HappyComponent happyComponent2 = context.getBean("happyComponent", HappyComponent.class);
+happyComponent2.doWork();
+
+//根据类型来获取bean时，在满足bean唯一性的前提下，其实只是看：『对象 instanceof 指定的类型』的返回结果，
+//只要返回的是true就可以认定为和类型匹配，能够获取到。
+```
+
+#### 组件作用域和周期方法配置
+
+可以在组件类中定义方法，当IoC容器实例化或者销毁组件对象的时候进行调用，这两个方法就是生命周期方法。
+
+类似于Servlet中的init/destroy方法，可以在周期方法完成初始化和释放资源。
+
+##### 周期方法声明
+
+组件类
+
+```java
+public class BeanOne {
+
+  //周期方法要求： 方法命名随意，但是要求方法必须是 public void 无形参列表
+  public void init() {
+    // 初始化逻辑
+  }
+}
+
+public class BeanTwo {
+
+  public void cleanup() {
+    // 释放资源逻辑
+  }
+}
+```
+
+周期方法配置
+
+```java
+<beans>
+  <bean id="beanOne" class="examples.BeanOne" init-method="init" />
+  <bean id="beanTwo" class="examples.BeanTwo" destroy-method="cleanup" />
+</beans>
+```
+
 ### 基于注解方式管理组件
 
 ### 基于配置类方式管理组件
