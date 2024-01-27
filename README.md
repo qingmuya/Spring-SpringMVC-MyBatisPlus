@@ -428,7 +428,7 @@ happyComponent2.doWork();
 
 类似于Servlet中的init/destroy方法，可以在周期方法完成初始化和释放资源。
 
-##### 周期方法声明
+##### 周期方法配置
 
 组件类
 
@@ -456,6 +456,157 @@ public class BeanTwo {
   <bean id="beanOne" class="examples.BeanOne" init-method="init" />
   <bean id="beanTwo" class="examples.BeanTwo" destroy-method="cleanup" />
 </beans>
+```
+
+##### 作用域配置
+
+`<bean` 标签声明Bean，只是将Bean的信息配置给SpringIoC容器！
+
+在IoC容器中，这些`<bean`标签对应的信息转成Spring内部 `BeanDefinition` 对象，`BeanDefinition` 对象内，包含定义的信息（id,class,属性等等）！
+
+这意味着，`BeanDefinition`与`类`概念一样，SpringIoC容器可以可以根据`BeanDefinition`对象反射创建多个Bean对象实例。
+
+具体创建多少个Bean的实例对象，由Bean的作用域Scope属性指定！
+
+| 取值      | 含义                                        | 创建对象的时机   | 默认值 |
+| --------- | ------------------------------------------- | ---------------- | ------ |
+| singleton | 在 IOC 容器中，这个 bean 的对象始终为单实例 | IOC 容器初始化时 | 是     |
+| prototype | 这个 bean 在 IOC 容器中有多个实例           | 获取 bean 时     | 否     |
+
+XML配置文件声明：
+
+```xml
+<!-- 声明范围，若为单例则为"prototype"，若为多例则为"singleton"-->
+<bean id="javabean2" class="com.qingmuy.ioc_04.Javabean2" scope="singleton" />
+<bean id="javabean3" class="com.qingmuy.ioc_04.Javabean2" scope="prototype" />
+```
+
+测试类：
+
+```java
+public void test_04_scope(){
+    ClassPathXmlApplicationContext applicationContext = new ClassPathXmlApplicationContext("spring-04.xml");
+
+    Javabean2 javabean0 = applicationContext.getBean("javabean2", Javabean2.class);
+    Javabean2 javabean1 = applicationContext.getBean("javabean2", Javabean2.class);
+    System.out.println(javabean0 == javabean1);
+
+    Javabean2 javabean2 = applicationContext.getBean("javabean3", Javabean2.class);
+    Javabean2 javabean3 = applicationContext.getBean("javabean3", Javabean2.class);
+    System.out.println(javabean2 == javabean3);
+
+    applicationContext.close();
+}
+```
+
+最终输出结果为：
+
+```java
+true
+false
+```
+
+#### FactoryBean特性和使用
+
+`FactoryBean` 接口是Spring IoC容器实例化逻辑的可插拔性点。
+
+用于配置复杂的Bean对象，可以将创建过程存储在`FactoryBean` 的getObject方法。
+
+`FactoryBean<T>` 接口提供三种方法：
+
+- `T getObject()`: 
+
+    返回此工厂创建的对象的实例。该返回值会被存储到IoC容器！
+- `boolean isSingleton()`: 
+
+    如果此 `FactoryBean` 返回单例，则返回 `true` ，否则返回 `false` 。此方法的默认实现返回 `true` （注意，lombok插件使用，可能影响效果）。
+- `Class<?> getObjectType()`: 返回 `getObject()` 方法返回的对象类型，如果事先不知道类型，则返回 `null` 。
+
+
+
+个人理解：
+
+对于一些复杂的对象的创建，需要使用到工厂设计模式。
+
+所谓工厂设计模式，就是对于创建复杂对象时的桥接，该桥接即为接口，接口内包含了三个方法：`创建复杂对象的方法`、`返回值类型的方法`、`返回单例多例的方法`。
+
+该接口需要继承`FactoryBean`接口；其内部的单例多例的方法被默认设置为单例，可以不用重写。
+
+需要注意的点：
+
+- XML配置文件配置FactoryBean接口时，实际上配置了两个类：目标类(复杂对象)和接口类；而接口类的id实际上就是配置的id前缀`&`。
+
+- 若想通过XML配置文件实现对复杂对象的操作，需要对接口类添加中间变量。
+- 接口类默认返回单例。
+
+ 
+
+下面演示`FactoryBean`的使用
+
+复杂对象的实现：
+
+```java
+public class javabean {
+    private String name;
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+}
+```
+
+FactoryBean接口的实现：
+
+```java
+public class javabeanFactorybean implements FactoryBean<javabean> {
+    //此处valueOfName变量的设置是为了方便给复杂对象进行赋值；可以理解为通过本中间变量实现操作FactoryBean对象即可完成对复杂对象的赋值。
+    private String valueOfName;
+
+    public void setValueOfName(String valueOfName) {
+        this.valueOfName = valueOfName;
+    }
+
+    @Override
+    public javabean getObject() throws Exception {
+        javabean javabean = new javabean();
+        //赋值操作
+        javabean.setName(valueOfName);
+        return javabean;
+    }
+
+    @Override
+    public Class<?> getObjectType() {
+        return javabean.class;
+    }
+}
+```
+
+XML配置文件的实现：
+
+```xml
+<bean id="javabean" class="com.qingmuy.IoC_05.javabeanFactorybean" >
+    <!-- 此处标签的作用是声明FactoryBean类的配置，name需要和变量保持一致，value即为赋值 -->
+    <property name="valueOfName" value="张三" />
+</bean>
+```
+
+测试类的实现：
+
+```java
+@Test
+public void test_05(){
+    ClassPathXmlApplicationContext applicationContext = new ClassPathXmlApplicationContext("spring-05.xml");
+
+    javabean javabean = applicationContext.getBean("javabean", javabean.class);
+    //直观的展现出Spring对对象的管理
+    System.out.println(javabean.getName());
+
+    applicationContext.close();
+}
 ```
 
 ### 基于注解方式管理组件
