@@ -611,4 +611,164 @@ public void test_05(){
 
 ### 基于注解方式管理组件
 
+#### Bean注解标记和扫描(IoC)
+
+和 XML 配置文件一样，注解本身并不能执行，注解本身仅仅只是做一个标记，具体的功能是框架检测到注解标记的位置，然后针对这个位置按照注解标记的功能来执行具体操作。
+
+本质上：所有一切的操作都是 Java 代码来完成的，XML 和注解只是告诉框架中的 Java 代码如何执行。
+
+组件类准备：
+
+**普通组件**
+
+```java
+public class CommonComponent {
+}
+```
+
+**Controller组件**
+
+```Java
+public class XxxController {
+}
+```
+
+**Service组件**
+
+```Java
+public class XxxService {
+}
+```
+
+**Dao组件**
+
+```Java
+public class XxxDao {
+}
+```
+
+
+
+##### **组件添加标记**
+
+| 注解        | 说明                                                         |
+| ----------- | ------------------------------------------------------------ |
+| @Component  | 该注解用于描述 Spring 中的 Bean，它是一个泛化的概念，仅仅表示容器中的一个组件（Bean），并且可以作用在应用的任何层次，例如 Service 层、Dao 层等。 使用时只需将该注解标注在相应类上即可。 |
+| @Repository | 该注解用于将数据访问层（Dao 层）的类标识为 Spring 中的 Bean，其功能与 @Component 相同。 |
+| @Service    | 该注解通常作用在业务层（Service 层），用于将业务层的类标识为 Spring 中的 Bean，其功能与 @Component 相同。 |
+| @Controller | 该注解通常作用在控制层（如SpringMVC 的 Controller），用于将控制层的类标识为 Spring 中的 Bean，其功能与 @Component 相同。 |
+
+通过查看源码得知，@Controller、@Service、@Repository这三个注解只是在@Component注解的基础上起了三个新的名字。
+
+对于Spring使用IOC容器管理这些组件来说没有区别，也就是语法层面没有区别。所以@Controller、@Service、@Repository这三个注解只是给开发人员看的，便于分辨组件的作用。
+
+注意：虽然它们本质上一样，但是为了代码的可读性、程序结构严谨。不能随便胡乱标记。
+
+
+
+**使用注解标记**
+
+普通组件
+
+```Java
+@Component
+public class CommonComponent {
+}
+```
+
+Controller组件
+
+```Java
+@Controller
+public class XxxController {
+}
+```
+
+Service组件
+
+```Java
+@Service
+public class XxxService {
+}
+```
+
+Dao组件
+
+```Java
+@Repository
+public class XxxDao {
+}
+```
+
+
+
+##### 配置文件确定扫描范围
+
+基本扫描配置
+
+```xml
+<!-- 配置自动扫描的包 -->
+<!-- 1.包要精准,提高性能!
+     2.会扫描指定的包和子包内容
+     3.多个包可以使用,分割
+-->
+<context:component-scan base-package="com.qingmuy.components"/>
+```
+
+指定排除组件
+
+```xml
+<!-- 指定不扫描的组件 -->
+<context:component-scan base-package="com.qingmuy.components">
+    
+    <!-- context:exclude-filter标签：指定排除规则 -->
+    <!-- type属性：指定根据什么来进行排除，annotation取值表示根据注解来排除 -->
+    <!-- expression属性：指定排除规则的表达式，对于注解来说指定全类名即可 -->
+    <context:exclude-filter type="annotation" expression="org.springframework.stereotype.Controller"/>
+</context:component-scan>
+```
+
+指定扫描组件
+
+```xml
+<!-- 仅扫描指定的组件 -->
+<!-- 仅扫描 = 关闭默认规则 + 追加规则 -->
+<!-- use-default-filters属性：取值false表示关闭默认扫描规则 -->
+<context:component-scan base-package="com.qingmuy.ioc.components" use-default-filters="false">
+    
+    <!-- context:include-filter标签：指定在原有扫描规则的基础上追加的规则 -->
+    <context:include-filter type="annotation" expression="org.springframework.stereotype.Controller"/>
+</context:component-scan>
+```
+
+
+
+##### 组件BeanName
+
+配置XML时，可以通过id属性指定组件的名字：便于在其他的地方引用。使用注解仍然有一个唯一表示。
+
+默认情况：雷鸣的首字母小写就是Bean的id。例如StudentDao类对应的bean的id就是studentDao。
+
+使用value属性指定：
+
+```java
+@Controller(value = "tianDog")
+public class SoldierController {
+}
+```
+
+当注解中只设置一个属性时，value属性的属性名可以省略：
+
+```Java
+@Service("smallDog")
+public class SoldierService {
+}
+```
+
+
+
+#### Bean作用域和周期方法注解
+
+
+
 ### 基于配置类方式管理组件
