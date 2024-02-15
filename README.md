@@ -769,6 +769,223 @@ public class SoldierService {
 
 #### Bean作用域和周期方法注解
 
+**周期方法**
+
+通过在组件类中自定义方法并添加注解的方法可以实现周期方法，在IoC容器实例化或销毁对象时进行调用。
+
+```java
+@Component
+public class JavaBean {
+    // 周期方法命名随意，但是要求方法必须是 public void 无形参列表
+    @PostConstruct		//初始化方法注解
+    public void init(){
+        System.out.println("JavaBean.Init");
+    }
+
+    @PreDestroy		//销毁方法注解
+    public void destory(){
+        System.out.println("JavaBean.destory");
+    }
+}
+```
+
+**Bean类作用域**
+
+`<bean` 标签声明Bean，只是将Bean的信息配置给SpringIoC容器！
+
+在IoC容器中，这些`<bean`标签对应的信息转成Spring内部 `BeanDefinition` 对象，`BeanDefinition` 对象内，包含定义的信息（id,class,属性等等）！
+
+这意味着，`BeanDefinition`与`类`概念一样，SpringIoC容器可以可以根据`BeanDefinition`对象反射创建多个Bean对象实例。
+
+具体创建多少个Bean的实例对象，由Bean的作用域Scope属性指定！
+
+*作用域的可选值*
+
+| 取值      | 含义                                        | 创建对象的时机   | 默认值 |
+| --------- | ------------------------------------------- | ---------------- | ------ |
+| singleton | 在 IOC 容器中，这个 bean 的对象始终为单实例 | IOC 容器初始化时 | 是     |
+| prototype | 这个 bean 在 IOC 容器中有多个实例           | 获取 bean 时     | 否     |
+
+如果是在WebApplicationContext环境下还会有另外两个作用域（但不常用）：
+
+| 取值    | 含义                 | 创建对象的时机 | 默认值 |
+| ------- | -------------------- | -------------- | ------ |
+| request | 请求范围内有效的实例 | 每次请求       | 否     |
+| session | 会话范围内有效的实例 | 每次会话       | 否     |
+
+**作用域配置**
+
+```java
+@Scope(scopeName = ConfigurableBeanFactory.SCOPE_SINGLETON)     // 单例
+@Scope(scopeName = ConfigurableBeanFactory.SCOPE_PROTOTYPE)     // 多例
+```
+
+注意：多例模式下，默认不使用周期方法中的销毁方法
+
+
+
+#### Bean属性赋值：引用类型自动装配(DI)
+
+当某个类中包含的属性为其他类对象时，对其它类对象进行配置。
+
+例如，现在有Service层、Controller层。配置分别为：
+
+Service层：
+
+```java
+// 接口
+@Service
+public interface UserService {
+    public String show();
+}
+
+// 实现类
+@Service
+public class UserServiceImpl implements UserService{
+    @Override
+    public String show() {
+        return "UserServiceImpl Show()";
+    }
+}
+```
+
+Controller层：
+
+```java
+@Controller
+public class UserController{
+
+    @Autowried
+    private UserService userService;
+
+    public void show() {
+        //调用业务层的show方法
+        String show = userService.show();
+        System.out.println("show = " + show);
+    }
+}
+```
+
+在此种情况下，ioc容器只有一个UserService接口对应的实现类对象，通过对未注册的bean组件使用@Autowried注解可以注册该bean组件，Service层show方法可以正常执行。
+
+
+
+**当ioc容器中没有默认的类型时，Spring将会报错：至少要有一个bean类。**
+
+佛系装配
+
+给 @Autowired 注解设置 required = false 属性表示：能装就装，装不上就不装。但是实际开发时，基本上所有需要装配组件的地方都是必须装配的，用不上这个属性
+
+```Java
+@Controller
+public class UserController {
+
+    // 给@Autowired注解设置required = false属性表示：能装就装，装不上就不装
+    @Autowired(required = false)
+    private UserService userService;
+```
+
+
+
+**同一个类型有多个对应的组件 @Autowried也就会报错，无法选择。**
+
+例如新增一个Service类
+
+```java
+@Service
+public class NewUserServiceImpl implements UserService {
+
+    public String show() {
+        return "NewUserService show()";
+    }
+}
+```
+
+**解决办法：**
+
+1、成员属性名指定@Autowried 多个组件的时候，默认会根据成员属性名查找。
+
+Controller层：
+
+```java
+public class UserController{
+
+    // <property userService -> 对应类型的bean装配
+    // 自动装配注解(DI) ： 1. ioc容器中查找符合类型的组件对象 2. 设置给当前属性(DI)
+    @Autowired
+    private UserService userServiceImpl;	//此处更名为实现类默认对象名
+
+    public void show() {
+        //调用业务层的show方法
+        String show = userServiceImpl.show();
+        System.out.println("show = " + show);
+    }
+}
+```
+
+输出结果为：
+
+```java
+show = UserServiceImpl Show()
+```
+
+
+
+2、使用@Qualifier(value = "userServiceImpl") 使用该注解指定获取bean的id，不能单独使用必须配合Autowried
+
+Controller层：
+
+```java
+@Controller
+public class UserController{
+
+    // <property userService -> 对应类型的bean装配
+    // 自动装配注解(DI) ： 1. ioc容器中查找符合类型的组件对象 2. 设置给当前属性(DI)
+    @Autowired
+    @Qualifier(value = "userServiceImpl")
+    private UserService userService;
+
+    public void show() {
+        //调用业务层的show方法
+        String show = userService.show();
+        System.out.println("show = " + show);
+    }
+}
+```
+
+输出结果为：
+
+```java
+show = UserServiceImpl Show()
+```
+
+
+
+3、JSR-250注解@Resourc
+
+@Resourc相当于@Autowried和@Qualifier结合使用。
+
+Controller层：
+
+```java
+@Controller
+public class UserController{
+	 /**
+     * 1. 如果没有指定name,先根据属性名查找IoC中组件xxxService
+     * 2. 如果没有指定name,并且属性名没有对应的组件,会根据属性类型查找
+     * 3. 可以指定name名称查找!  @Resource(name='test') == @Autowired + @Qualifier(value='test')
+     */
+    @Resource(name = "newUserServiceImpl")
+    private UserService userService;
+
+    public void show() {
+        //调用业务层的show方法
+        String show = userService.show();
+        System.out.println("show = " + show);
+    }
+}
+```
+
 
 
 ### 基于配置类方式管理组件
