@@ -988,4 +988,35 @@ public class UserController{
 
 
 
+#### Bean属性赋值：基本类型属性赋值(DI)
+
+对于基本的数据类型的赋值，有两种赋值法方法：
+
+- 直接赋值
+- 使用@Value注解赋值
+  - 可以添加默认值，`key:value`形式
+
+```java
+@Component
+public class JavaBean {
+
+    // 直接赋值
+    // 使用@Value注解
+    //      添加默认值
+    private String name = "丁真";
+
+    @Value("19")
+    private int age;
+
+    @Value("${jdbc.username:admin}")
+    private String username;
+
+    @Value("${jdbc.password}")
+    private String password;
+```
+
+
+
+
+
 ### 基于配置类方式管理组件
