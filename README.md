@@ -1017,6 +1017,180 @@ public class JavaBean {
 
 
 
-
-
 ### 基于配置类方式管理组件
+
+Spring 完全注解配置（Fully Annotation-based Configuration）是指通过 Java配置类 代码来配置 Spring 应用程序，使用注解来替代原本在 XML 配置文件中的配置。相对于 XML 配置，完全注解配置具有更强的类型安全性和更好的可读性。
+
+  @Configuration指定一个类为配置类，可以添加配置注解，替代配置xml文件
+
+  @ComponentScan(basePackages = {"包","包"}) 替代<context:component-scan标签实现注解扫描
+
+  @PropertySource("classpath:配置文件地址") 替代 <context:property-placeholder标签
+
+  配合IoC/DI注解，可以进行完整注解开发！
+
+![](./assets/image-1709037915493-1.png)
+
+
+
+#### 配置类和扫描注解
+
+1. 对于Java配置类，使用`@Configuration`声明该类为配置类；
+2. 将xml配置文件使用`@ComponentScan()`注明，内部可添加参数：单个多个均可；对于单个包添加，使用String格式即可、对于多个包添加，需要使用集合的形式，如：`@ComponentScan({"com.qingmuy.ioc_01","com.qingmuy.ioc_02"})`；
+3. 对于外部配置文件，如jdbc.properties，使用`@PropertySource`注解，例如：`@PropertySource("classpath:jdbc.properties")`。
+
+如以下配置类的编写：
+
+```java
+@Configuration
+@PropertySource("classpath:jdbc.properties")
+@ComponentScan("com.qingmuy.ioc_01")
+public class JavaConfiguration {
+}
+```
+
+
+
+#### @Bean定义组件
+
+对于第三方jar包，其源码jar包内容为只读模式，若要添加到IoC容器进行管理，是无法通过@Component注解实现的
+
+@Bean 注释的功能就是xml配置文件中`<bean>`标签的作用：将第三方jar包为自己所用。
+
+实际上`<bean>`标签转化成了一个方法：该方法的返回值类型即为bean组件的类型或者他的接口和父类；方法的名字等同于bean id；方法体自定义实现过程，而`@Bean`注解会让配置类的方法创建的组件存储到IoC容器。
+
+例如配置数据库连接，需要使用Druid连接池，以下展示使用注解方法配置第三方jar包：
+
+```java
+@Configuration
+@PropertySource("classpath:jdbc.properties")
+@ComponentScan("com.qingmuy.ioc_01")
+public class JavaConfiguration {
+    /*
+    * 对第三方类进行IoC管理，使用@Bean注解   实际上<bean>标签转化成了一个方法
+    *   该方法的返回值类型 == bean组件的类型或者他的接口和父类
+    *   方法的名字 == bean id
+    * 方法体自定义实现过程，而@Bean会让配置类的方法创建的组件存储到IoC容器
+    * 对于传入的这些参数，可以设置为全局变量，也可以设置为形参列表
+    * @Value可以对形参列表使用
+    * */
+    @Bean
+    public DataSource createDataSource(
+            @Value("${qingmuy.url}") String url,
+            @Value("${qingmuy.driver}") String driver,
+            @Value("${qingmuy.username}") String username,
+            @Value("${qingmuy.password}") String password
+    ){
+        DruidDataSource druidDataSource = new DruidDataSource();
+        druidDataSource.setUrl(url);
+        druidDataSource.setDriverClassName(driver);
+        druidDataSource.setUsername(username);
+        druidDataSource.setPassword(password);
+        return druidDataSource;
+    }
+}
+```
+
+
+
+#### @Bean注解细节
+
+1. @Bean生成BeanName问题
+
+   其默认为方法名，若需指定，通过指定name/value即可，覆盖方法名，如：`@Bean(name = "Dingzhen")`
+
+2. 指定周期方法
+
+   `@Bean` 注解支持指定任意初始化和销毁回调方法，非常类似于 Spring XML 在 `bean` 元素上的 `init-method` 和 `destroy-method` 属性，如以下示例所示：
+
+   ```Java
+   @Bean(initMethod = "init")
+   public BeanOne beanOne() {
+   	// 自定义代码
+   }
+   
+   @Bean(destroyMethod = "cleanup")
+   public BeanTwo beanTwo() {
+       // 自定义代码
+   }
+   ```
+
+3. Scope作用域
+
+   @Bean注解自带作用域，默认作用域为 `singleton` ，但仍可以使用 `@Scope` 注释覆盖此范围，如以下示例所示：
+
+   ```Java
+   @Configuration
+   public class MyConfiguration {
+   
+     @Bean
+     @Scope("prototype")
+     public Encryptor encryptor() {
+       // ...
+     }
+   }
+   ```
+
+4. 如何引用其他的IoC组件
+
+   方法一：若同为@Bean注解，直接调用方法即可
+
+   方法二：直接形参变量进行引入，要求必须有对应的组件，如果有多个，将形参名等于组件ID表示即可。
+
+   例如：
+
+   ```java
+   @Configuration
+   @PropertySource("classpath:jdbc.properties")
+   @ComponentScan("com.qingmuy.ioc_01")
+   public class JavaConfiguration {
+       @Value("${qingmuy.url}")
+       private String url;
+       @Value("${qingmuy.driver}")
+       private String driver;
+       @Value("${qingmuy.username}")
+       private String username;
+       @Value("${qingmuy.password}")
+       private String password;
+   
+       /*
+       * 引用其他的IoC组件
+       * 方法一：若同为@Bean注解，直接调用方法即可
+       * 方法二：直接形参变量进行引入，要求必须有对应的组件，如果有多个，形参名 == 组件ID表示即可
+       * */
+       @Bean(name = "Dingzhen")
+       public DataSource createDataSource(){
+           DruidDataSource druidDataSource = new DruidDataSource();
+           druidDataSource.setUrl(url);
+           druidDataSource.setDriverClassName(driver);
+           druidDataSource.setUsername(username);
+           druidDataSource.setPassword(password);
+           return druidDataSource;
+       }
+   
+       @Bean(name = "Xuebao")
+       public DataSource createDataSource1(){
+           DruidDataSource druidDataSource = new DruidDataSource();
+           druidDataSource.setUrl(url);
+           druidDataSource.setDriverClassName(driver);
+           druidDataSource.setUsername(username);
+           druidDataSource.setPassword(password);
+           return druidDataSource;
+       }
+   
+       //方法一：同为@Bean注解，直接调用方法即可
+       @Bean
+       public JdbcTemplate jdbcTemplate(){
+           JdbcTemplate jdbcTemplate = new JdbcTemplate();
+           jdbcTemplate.setDataSource(createDataSource());
+           return jdbcTemplate;
+       }
+   
+       //方法二：通过方法参数传递Bean实例的引用来解决Bean实例之间的依赖关系
+       public JdbcTemplate jdbcTemplate1(DataSource Dingzhen){
+           JdbcTemplate jdbcTemplate = new JdbcTemplate();
+           jdbcTemplate.setDataSource(Dingzhen);
+           return jdbcTemplate;
+       }
+   }
+   ```
