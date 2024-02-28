@@ -1194,3 +1194,49 @@ public class JavaConfiguration {
        }
    }
    ```
+
+
+
+#### @Import注解使用
+
+如果包含多个配置类，可以使用@Import注解将其他配置类引入到目标的配置类，便于指定配置类；同时@Import注解可以传递：即B配置类引入了C配置类，A配置类引入了B配置类，最终添加A配置类会添加A、B、C三个配置类。
+
+例如：
+
+```java
+@Import(JavaConfigurationB.class)
+public class JavaConfigurationA {
+}
+
+@Configuration
+public class JavaConfigurationB {
+}
+```
+
+
+
+### 三种配置方式总结
+
+  #### XML方式配置总结
+1. 所有内容写到xml格式配置文件中
+2. 声明bean通过<bean标签
+3. <bean标签包含基本信息（id,class）和属性信息 <property name value / ref
+4. 引入外部的properties文件可以通过<context:property-placeholder
+5. IoC具体容器实现选择ClassPathXmlApplicationContext对象
+
+  #### XML+注解方式配置总结
+1. 注解负责标记IoC的类和进行属性装配
+2. xml文件依然需要，需要通过<context:component-scan标签指定注解范围
+3. 标记IoC注解：@Component,@Service,@Controller,@Repository 
+4. 标记DI注解：@Autowired @Qualifier @Resource @Value
+5. IoC具体容器实现选择ClassPathXmlApplicationContext对象
+
+  #### 完全注解方式配置总结
+1. 完全注解方式指的是去掉xml文件，使用配置类 + 注解实现
+2. xml文件替换成使用@Configuration注解标记的类
+3. 标记IoC注解：@Component,@Service,@Controller,@Repository 
+4. 标记DI注解：@Autowired @Qualifier @Resource @Value
+5. <context:component-scan标签指定注解范围使用@ComponentScan(basePackages = {"com.atguigu.components"})替代
+6. <context:property-placeholder引入外部配置文件使用@PropertySource({"classpath:application.properties","classpath:jdbc.properties"})替代
+7. <bean 标签使用@Bean注解和方法实现
+8. IoC具体容器实现选择AnnotationConfigApplicationContext对象
