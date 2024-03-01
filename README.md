@@ -1366,10 +1366,186 @@ AOP把软件系统分为两个部分：**核心关注点**和**横切关注点**
 
 
 
-### Spring AOP框架介绍和关系梳理
+### Spring AOP 框架介绍和关系梳理
 1. AOP一种区别于OOP的编程思维，用来完善和解决OOP的非核心代码冗余和不方便统一维护问题
 2. 代理技术（动态代理|静态代理）是实现AOP思维编程的具体技术，但是自己使用动态代理实现代码比较繁琐
 3. Spring AOP框架，基于AOP编程思维，封装动态代理技术，简化动态代理技术实现的框架！SpringAOP内部帮助我们实现动态代理，只需写少量的配置，指定生效范围即可,即可完成面向切面思维编程的实现
+
+
+
+### Spring AOP 基于注解方式实现和细节
+
+#### 底层技术组成
+
+![](./assets/img006.84eb95b7.png)
+
+- 动态代理（InvocationHandler）：JDK原生的实现方式，需要被代理的目标类必须实现接口。因为这个技术要求代理对象和目标对象实现同样的接口（兄弟两个拜把子模式）。
+- cglib：通过继承被代理的目标类（认干爹模式）实现代理，所以不需要目标类实现接口。
+- AspectJ：早期的AOP实现的框架，SpringAOP借用了AspectJ中的AOP注解。
+
+#### 初步实现
+
+1. 首先要加入依赖，确保spring-aspects会传递aspectjweaver
+
+```xml
+<!-- spring-aspects会帮我们传递过来aspectjweaver -->
+<dependency>
+    <groupId>org.springframework</groupId>
+    <artifactId>spring-aspects</artifactId>
+    <version>6.0.6</version>
+</dependency>
+```
+
+2. 准备接口类
+
+```java
+public interface Calculator {
+
+    int add(int i, int j);
+
+    int sub(int i, int j);
+
+    int mul(int i, int j);
+
+    int div(int i, int j);
+}
+```
+
+3. 对于接口实现实现类
+
+```java
+@Service
+public class CalculatorPureImpl implements Calculator {
+    @Override
+    public int add(int i, int j) {
+        return i + j;
+    }
+
+    @Override
+    public int sub(int i, int j) {
+        return i - j;
+    }
+
+    @Override
+    public int mul(int i, int j) {
+        return i * j;
+    }
+
+    @Override
+    public int div(int i, int j) {
+        return i / j;
+    }
+}
+```
+
+4. 在配置中声明切面类
+
+```java
+@Component
+@Aspect		//代表声明切面类
+public class LogAdvice {
+
+    // 决定插入的位置
+    @Before("execution(* com.qingmuy.Service.Impl.*.*(..))")
+    public void start(){
+        System.out.println("方法开始了");
+    }
+
+    @AfterReturning("execution(* com.qingmuy.Service.Impl.*.*(..))")
+    public void after(){
+        System.out.println("方法结束了");
+    }
+
+    @AfterThrowing("execution(* com.qingmuy.Service.Impl.*.*(..))")
+    public void Error(){
+        System.out.println("方法报错了");
+    }
+}
+```
+
+5. 开启 aspectj 注解支持
+
+   1. xml 方式
+
+   ```python
+   <!-- 开启aspectj框架注解支持-->
+       <aop:aspectj-autoproxy />
+   ```
+
+   2. 配置类方式
+
+   ```java
+   @Configuration
+   @ComponentScan(basePackages = "com.qingmuy")
+   @EnableAspectJAutoProxy		//作用等于 <aop:aspectj-autoproxy /> 配置类上开启 Aspectj注解支持!
+   public class MyConfig {
+   }
+   ```
+
+6. 测试效果
+
+```java
+@SpringJUnitConfig(value = javaConfig.class)
+public class springAOPTest {
+    @Autowired
+    private Calculator calculator;
+
+    @Test
+    public void Test(){
+        int add = calculator.add(1 , 1);
+
+        System.out.println("add = " + add);
+    }
+}
+```
+
+
+
+以上操作需要注意的细节：
+
+- 增强类（通知类）也需要被扫描，所以在Config配置类中需要扫描的范围中包含增强类
+- 谁是增强类（通知类）在谁头上注明`@Aspect`，在配置类上使用`@EnableAspectJAutoProxy`表示开启 aspectj 注解支持
+- 在测试类中，需要获取对象调用方法，实际上就是代理类在使用方法，但是动态代理实现分为两种：JDK自带和Cglib，一个是通过相同接口实现一个类来调用方法，一个是以目标类为父类创建子类；为了避免在JDK自带动态代理方式下无法使用，尽量使用接口创建的对象（实际上是Spring通过IoC容器创建的对象）来实现方法。
+
+
+
+需要理解和记忆的部分：
+
+1. 定义方法储存增强代码
+
+​	具体定义几个方法，根据插入的位置决定
+
+2. 使用注解配置，指定插入目标方法的位置
+
+```java
+@Before		//前置  
+@AfterReturning		//后置  
+@AfterThrowing		//异常  
+@After		//最后  
+@Around		//环绕  
+```
+
+```java
+try{
+    前置
+    目标方法执行
+    后置
+}catch(){
+    异常
+}finally{
+    最后
+}
+```
+
+3. 配置切点表达式 [选中插入的方法    切点]
+
+4. 补全注解
+
+​		加入IoC容器 @Component
+
+​		配置切面    @Aspect
+
+5. 开启aspect注解的支持
 
 
 
