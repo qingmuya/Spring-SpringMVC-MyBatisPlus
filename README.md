@@ -160,7 +160,7 @@ DI 是指在组件之间传递依赖关系的过程中，将依赖关系在容�
 直接声明即可
 
 ```xml
-<bean id="happyComponent" class="com.atguigu.ioc.HappyComponent"/>
+<bean id="happyComponent" class="com.qingmuy.ioc.HappyComponent"/>
 ```
 
 - bean标签：通过配置bean标签告诉IOC容器需要创建对象的组件信息
@@ -1220,26 +1220,26 @@ public class JavaConfigurationB {
   #### XML方式配置总结
 1. 所有内容写到xml格式配置文件中
 2. 声明bean通过<bean标签
-3. <bean标签包含基本信息（id,class）和属性信息 <property name value / ref
-4. 引入外部的properties文件可以通过<context:property-placeholder
-5. IoC具体容器实现选择ClassPathXmlApplicationContext对象
+3. <bean标签包含基本信息（id,class）和属性信息 `<property name value / ref>`
+4. 引入外部的properties文件可以通过`<context:property-placeholder>`
+5. IoC具体容器实现选择`ClassPathXmlApplicationContext`对象
 
   #### XML+注解方式配置总结
 1. 注解负责标记IoC的类和进行属性装配
-2. xml文件依然需要，需要通过<context:component-scan标签指定注解范围
-3. 标记IoC注解：@Component,@Service,@Controller,@Repository 
-4. 标记DI注解：@Autowired @Qualifier @Resource @Value
-5. IoC具体容器实现选择ClassPathXmlApplicationContext对象
+2. xml文件依然需要，需要通过`<context:component-scan>`标签指定注解范围
+3. 标记IoC注解：`@Component`、`@Service`、`@Controller`、`@Repository` 
+4. 标记DI注解：`@Autowired`、 `@Qualifier`、 `@Resource` 、`@Value`
+5. IoC具体容器实现选择`ClassPathXmlApplicationContext`对象
 
   #### 完全注解方式配置总结
 1. 完全注解方式指的是去掉xml文件，使用配置类 + 注解实现
-2. xml文件替换成使用@Configuration注解标记的类
-3. 标记IoC注解：@Component,@Service,@Controller,@Repository 
-4. 标记DI注解：@Autowired @Qualifier @Resource @Value
-5. <context:component-scan标签指定注解范围使用@ComponentScan(basePackages = {"com.atguigu.components"})替代
-6. <context:property-placeholder引入外部配置文件使用@PropertySource({"classpath:application.properties","classpath:jdbc.properties"})替代
-7. <bean 标签使用@Bean注解和方法实现
-8. IoC具体容器实现选择AnnotationConfigApplicationContext对象
+2. xml文件替换成使用`@Configuration`注解标记的类
+3. 标记IoC注解：`@Component`、`@Service`、`@Controller`、`@Repository` 
+4. 标记DI注解：`@Autowired` 、`@Qualifier`、 `@Resource`、 `@Value`
+5. <context:component-scan标签指定注解范围使用@ComponentScan(basePackages = {"com.qingmuy.components"})替代
+6. `<context:property-placeholder`引入外部配置文件使用`@PropertySource({"classpath:application.properties","classpath:jdbc.properties"})`替代
+7. `<bean>` 标签使用`@Bean`注解和方法实现
+8. IoC具体容器实现选择`AnnotationConfigApplicationContext`对象
 
 
 
@@ -1549,3 +1549,213 @@ try{
 
 
 
+#### 获取通知细节信息
+
+1. JointPoint 接口
+
+可以获取方法签名、传入的实参等信息，可以在通知方法声明JoinPoint类型的形参。
+
+- 要点1：JoinPoint 接口通过 getSignature() 方法获取目标方法的签名（方法声明时的完整信息）
+- 要点2：通过目标方法签名对象获取方法名
+- 要点3：通过 JoinPoint 对象获取外界调用目标方法时传入的实参列表组成的数组
+
+```java
+// 全部增强方法中，获取目标方法的信息(方法名，参数，访问修饰符，所属的类的信息...)
+// (JoinPoint joinPoint) import org.aspectj.lang.JoinPoint;  不能导错包
+//  joinPoint包含目标方法的信息！
+@Component
+@Aspect
+public class MyAdvice {
+
+    @Before("execution(* com..impl.*.*(..))")
+    public void before(JoinPoint joinPoint){
+
+        //1.获取方法属于的类的信息
+        String simpleName = joinPoint.getTarget().getClass().getSimpleName();
+        //2.获取方法的修饰符
+        // JAVA 反射机制中，getModifiers()方法返回int类型值表示该字段的修饰符。
+        // 再利用MOdifier类中自带的toString方法将数字代表的修饰符转换为字段形式的修饰符
+        int modifiers = joinPoint.getSignature().getModifiers();
+        String string = Modifier.toString(modifiers);
+        //3.获取方法的名称
+        String name = joinPoint.getSignature().getName();
+        //4.获取参数列表
+        Object[] args = joinPoint.getArgs();
+
+    }
+}
+```
+
+
+
+2. 方法返回值
+
+​	在返回通知中，通过@AfterReturning注解的returning属性获取目标方法的返回值！
+
+```java
+// 返回的结果 = @AfterReturning
+// (Object result) result接收返回结果
+// @AfterReturning(value = "execution(* com..impl.*.*(..))", returning = "形参名即可")
+@AfterReturning(value = "execution(* com..impl.*.*(..))", returning = "result")
+public void afterReturning(JoinPoint joinPoint, Object result){
+
+}
+```
+
+
+
+3. 异常对象捕捉
+
+​	在异常通知中，通过@AfterThrowing注解的throwing属性获取目标方法抛出的异常对象
+
+```java
+// 异常的信息 - @AfterThrowing
+// (Throwable throwable) throwable接收异常信息
+// @AfterThrowing(value = "execution(* com..impl.*.*(..))", throwing = "形参名即可")
+@AfterThrowing(value = "execution(* com..impl.*.*(..))", throwing = "throwable")
+public void afterThrowing(JoinPoint joinPoint, Throwable throwable){
+
+}
+```
+
+
+
+#### 切点表达式语法
+
+1. 切点表达式作用
+
+​		AOP切点表达式（Pointcut Expression）是一种用于指定切点的语言，它可以通过定义匹配规则，来选择需要被切入的目标对象。
+
+![](./assets/img028.cb7f2153.png)
+
+2. 切点表达式语法
+
+   切点表达式总结
+
+   ![](http://heavy_code_industry.gitee.io/code_heavy_industry/assets/img/img011.dde1a79a.png)
+
+   语法细节
+
+   - 第一位：execution( ) 固定开头
+   - 第二位：方法访问修饰符
+
+   ```Java
+   public private 直接描述对应修饰符即可
+   ```
+   - 第三位：方法返回值
+
+   ```Java
+   int String void 直接描述返回值类型
+   
+   ```
+
+       注意：
+       
+       特殊情况 不考虑 访问修饰符和返回值
+       
+         execution(* * ) 这是错误语法
+       
+         execution(*) == 只要考虑返回值 或者 不考虑访问修饰符 相当于全部不考虑了
+   - 第四位：指定包的地址
+
+   ```Java
+    固定的包: com.qingmuy.api | service | dao
+    单层的任意命名: com.qingmuy.*  = com.qingmuy.api  com.qingmuy.dao  * = 任意一层的任意命名
+    任意层任意命名: com.. = com.qingmuy.api.erdaye com.a.a.a.a.a.a.a  ..任意层,任意命名 用在包上!
+    注意: ..不能用作包开头   public int .. 错误语法  com..
+    找到任何包下: *..
+   ```
+   - 第五位：指定类名称
+
+   ```Java
+   固定名称: UserService
+   任意类名: *
+   部分任意: com..service.impl.*Impl
+   任意包任意类: *..*
+   ```
+   - 第六位：指定方法名称
+
+   ```Java
+   语法和类名一致
+   任意访问修饰符,任意类的任意方法: * *..*.*
+   ```
+   - 第七位：方法参数
+
+   ```Java
+   第七位: 方法的参数描述
+          具体值: (String,int) != (int,String) 没有参数 ()
+          模糊值: 任意参数 有 或者 没有 (..)  ..任意参数的意识
+          部分具体和模糊:
+            第一个参数是字符串的方法 (String..)
+            最后一个参数是字符串 (..String)
+            字符串开头,int结尾 (String..int)
+            包含int类型(..int..)
+   ```
+
+#### 重用（提取）切点表达式
+
+1. 重用切点表达式优点
+
+​		对于增强的方法，往往是多个方法作用于一个类，如下代码所示，这导致我们会编写许多重复的切点表达式，而且一旦发生更改，代码也不容易维护。
+
+```java
+@Before("execution(* com..impl.*.*(..))")
+public void before(JoinPoint joinPoint){
+}
+
+@AfterReturning(value = "execution(* com..impl.*.*(..))")
+public void afterReturning(JoinPoint joinPoint){
+}
+
+@After("execution(* com..impl.*.*(..))")
+public void after(JoinPoint joinPoint){
+}
+
+@AfterThrowing(value = "execution(* com..impl.*.*(..))")
+public void afterThrowing(JoinPoint joinPoint){
+}
+```
+
+2. 同一类内部引用
+
+​	提取
+
+```java
+// 切入点表达式重用
+@Pointcut("execution(* com..impl.*.*(..))")
+public void location(){}
+```
+
+​	注意：提取切点注解使用@Pointcut(切点表达式) ， 需要添加到一个无参数无返回值方法上即可！
+
+​	引用
+
+```Java
+@Before("location()")
+public void before(JoinPoint joinPoint){}
+```
+
+3. 不同类中引用
+
+​	不同类在引用切点，只需要添加类的全限定符+方法名即可！
+
+```Java
+@Before("com.qingmuy.Pointcut.pointcut.location()")
+public void before(JoinPoint joinPoint){}
+```
+
+4. 切点统一管理
+
+​	建议：将切点表达式统一存储到一个类中进行集中管理和维护！
+
+```Java
+package com.qingmuy.Pointcut;
+
+@Component
+public class pointcut {
+
+    @Pointcut("execution(* com..impl.*.*(..))")
+    public void location(){}
+
+}
+```
