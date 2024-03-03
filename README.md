@@ -1759,3 +1759,235 @@ public class pointcut {
 
 }
 ```
+
+
+
+#### 环绕通知
+
+环绕通知对应整个 try...catch...finally 结构，包括前面四种通知的所有功能。
+
+```java
+@Component
+@Aspect
+public class TxAroundAdvice {
+
+    @Around("com.qingmuy.Pointcut.pointcut.location()")
+    public Object transaction(ProceedingJoinPoint joinPoint){
+        Object[] args = joinPoint.getArgs();
+        Object result = null;
+
+        try{
+            System.out.println("环绕通知：开启事物");
+            result = joinPoint.proceed(args);
+            System.out.println("环绕通知：事务结束");
+        } catch (Throwable e) {
+            System.out.println("环绕通知：事物回滚");
+            throw new RuntimeException(e);
+        }finally {
+
+        }
+
+        return result;
+    }
+
+}
+```
+
+
+
+#### 切面优先级设置
+
+相同目标方法上同时存在多个切面时，切面的优先级控制切面的内外嵌套顺序。
+
+- 优先级高的切面：外面
+- 优先级低的切面：里面
+
+使用 @Order 注解可以控制切面的优先级：
+
+- @Order(较小的数)：优先级高
+- @Order(较大的数)：优先级低
+
+![](./assets/img012.b353bc56.png)
+
+实际意义
+
+实际开发时，如果有多个切面嵌套的情况，要慎重考虑。例如：如果事务切面优先级高，那么在缓存中命中数据的情况下，事务切面的操作都浪费了。
+
+![](./assets/img013.53c41dc7.png)
+
+
+
+此时应该将缓存切面的优先级提高，在事务操作之前先检查缓存中是否存在目标数据。
+
+![](./assets/img014.ee4ed40a.png)
+
+测试用例
+
+存在两个增强类：方法通知类
+
+```java
+@Component
+@Aspect
+@Order(2)
+public class LogAdvice {
+
+    @Before("execution(* com.qingmuy.Service.Impl.*.*(..))")
+    public void start(){
+        System.out.println("方法开始了");
+    }
+
+    @AfterReturning("execution(* com.qingmuy.Service.Impl.*.*(..))")
+    public void after(){
+        System.out.println("方法结束了");
+    }
+
+    @AfterThrowing("execution(* com.qingmuy.Service.Impl.*.*(..))")
+    public void Error(){
+        System.out.println("方法报错了");
+    }
+}
+```
+
+事物通知类：：
+
+```java
+@Component
+@Aspect
+@Order(1)
+public class TxAroundAdvice {
+
+    @Before("com.qingmuy.Pointcut.pointcut.location()")
+    public void begin(JoinPoint joinPoint){
+        System.out.println("事物开启");
+    }
+
+    @AfterReturning("com.qingmuy.Pointcut.pointcut.location()")
+    public void commit(){
+        System.out.println("事物提交");
+    }
+
+    @AfterThrowing("com.qingmuy.Pointcut.pointcut.location()")
+    public void rollback(){
+        System.out.println("事物回滚");
+    }
+}
+```
+
+核心函数为本章所用的加减乘除函数。
+
+测试函数为：
+
+```java
+@SpringJUnitConfig(value = javaConfig.class)
+public class springAOPTest {
+    @Autowired
+    private Calculator calculator;
+
+    @Test
+    public void Test(){
+        int add = calculator.add(1 , 1);
+
+        System.out.println("add = " + add);
+    }
+}
+```
+
+最终输出结果为：
+
+```java
+事物开启
+方法开始了
+方法结束了
+事物提交
+add = 2
+```
+
+
+
+#### CGLib 动态代理生效
+
+在目标类没有实现任何接口的情况下，Spring会自动使用cglib技术实现代理。
+
+a.  如果目标类有接口,选择使用jdk动态代理
+
+b.  如果目标类没有接口,选择cglib动态代理
+
+c.  如果有接口,接口接值
+
+d.  如果没有接口,类进行接值
+
+
+
+#### 注解实现总结
+
+![](./assets/img015.9c921baf.png)
+
+
+
+### Spring AOP对获取Bean的影响理解
+
+#### 5.7.1 根据类型装配 bean
+  1. 情景一
+      - bean 对应的类没有实现任何接口
+      - 根据 bean 本身的类型获取 bean
+          - 测试：IOC容器中同类型的 bean 只有一个
+
+              正常获取到 IOC 容器中的那个 bean 对象
+          - 测试：IOC 容器中同类型的 bean 有多个
+
+              会抛出 NoUniqueBeanDefinitionException 异常，表示 IOC 容器中这个类型的 bean 有多个
+  2. 情景二
+      - bean 对应的类实现了接口，这个接口也只有这一个实现类
+          - 测试：根据接口类型获取 bean
+          - 测试：根据类获取 bean
+          - 结论：上面两种情况其实都能够正常获取到 bean，而且是同一个对象
+  3. 情景三
+      - 声明一个接口
+      - 接口有多个实现类
+      - 接口所有实现类都放入 IOC 容器
+          - 测试：根据接口类型获取 bean
+
+              会抛出 NoUniqueBeanDefinitionException 异常，表示 IOC 容器中这个类型的 bean 有多个
+          - 测试：根据类获取bean
+
+              正常
+  4. 情景四
+      - 声明一个接口
+      - 接口有一个实现类
+      - 创建一个切面类，对上面接口的实现类应用通知
+          - 测试：根据接口类型获取bean
+
+              正常
+          - 测试：根据类获取bean
+
+              无法获取
+
+      原因分析：
+
+      - 应用了切面后，真正放在IOC容器中的是代理类的对象
+      - 目标类并没有被放到IOC容器中，所以根据目标类的类型从IOC容器中是找不到的
+
+          ![](./assets/img021.3e0da1cc.png)
+  5. 情景五
+      - 声明一个类
+      - 创建一个切面类，对上面的类应用通知
+          - 测试：根据类获取 bean，能获取到
+
+          ![](./assets/img023.b5696f3e.png)
+
+          debug查看实际类型：
+
+          ![](./assets/img024.558f6062.png)
+
+#### 5.7.2 使用总结
+
+  对实现了接口的类应用切面
+
+  ![](./assets/image-1709428444138-7.png)
+
+  对没实现接口的类应用切面new
+
+  ![](./assets/image-1709428444132-3.png)
+
+  **如果使用AOP技术，目标类有接口，必须使用接口类型接收IoC容器中代理组件！**
+
