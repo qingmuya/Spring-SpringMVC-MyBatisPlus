@@ -1995,9 +1995,9 @@ d.  如果没有接口,类进行接值
 
 ## Spring 声明式事务
 
-### 6.1 声明式事务概念
+### 声明式事务概念
 
-  #### 6.1.1 编程式事务
+  #### 编程式事务
 
 编程式事务是指手动编写程序来管理事务，即通过编写代码的方式直接控制事务的提交和回滚。在 Java 中，通常使用事务管理器(如 Spring 中的 `PlatformTransactionManager`)来实现编程式事务。
 
@@ -2032,7 +2032,7 @@ try {
 - 细节没有被屏蔽：具体操作过程中，所有细节都需要程序员自己来完成，比较繁琐。
 - 代码复用性不高：如果没有有效抽取出来，每次实现功能都需要自己编写代码，代码就没有得到复用。
 
-  #### 6.1.2 声明式事务
+  #### 声明式事务
 
 声明式事务是指使用注解或 XML 配置的方式来控制事务的提交和回滚。
 
@@ -2045,7 +2045,7 @@ try {
 - 编程式事务需要手动编写代码来管理事务
 - 而声明式事务可以通过配置文件或注解来控制事务。
 
-  #### 6.1.3 Spring事务管理器
+  #### Spring事务管理器
 1. Spring声明式事务对应依赖
     - spring-tx: 包含声明式事务实现的基本规范（事务管理器规范接口和事务增强等等）
     - spring-jdbc: 包含DataSource方式事务管理器实现类DataSourceTransactionManager
@@ -2063,3 +2063,74 @@ try {
     - doResume()：恢复挂起的事务
     - doCommit()：提交事务
     - doRollback()：回滚事务
+
+
+
+### 基于注解的声明式事务
+
+#### 基本事务控制
+
+首先，事务本身就是数据库层面的概念，其核心思想就是在对数据库的操作中避免异常导致数据库的内容问题：可以理解为版本控制。
+
+而事务控制，包含了事务开启、事务提交、事务回滚等操作，这三个核心操作会在对数据库的操作能正常执行后提交事务，不能正常执行则回滚事务，减小了数据损失的风险。
+
+所以，首先要配置好数据库
+
+```java
+@Configuration
+@ComponentScan("com.qingmuy")
+@PropertySource(value = "classpath:jdbc.properties")
+@EnableTransactionManagement
+public class DataSourceConfig {
+    @Bean
+    public DataSource dataSource(@Value("${qingmuy.url}")String url,
+                                 @Value("${qingmuy.driver}")String driver,
+                                 @Value("${qingmuy.username}")String username,
+                                 @Value("${qingmuy.password}")String password){
+        DruidDataSource dataSource = new DruidDataSource();
+        dataSource.setDriverClassName(driver);
+        dataSource.setUrl(url);
+        dataSource.setUsername(username);
+        dataSource.setPassword(password);
+
+        return dataSource;
+    }
+
+    @Bean
+    public JdbcTemplate jdbcTemplate(DataSource dataSource){
+        JdbcTemplate jdbcTemplate = new JdbcTemplate();
+        jdbcTemplate.setDataSource(dataSource);
+        return jdbcTemplate;
+    }
+
+    //装配事务管理实现对象
+    @Bean
+    public TransactionManager transactionManager(DataSource dataSource){
+        return new DataSourceTransactionManager(dataSource);
+    }
+}
+```
+
+以上在数据库中为TransactionManager对象配置了数据库来源，而TransactionManager就是管理事务的类。
+
+对于需要进行事务管理的类，使用声明事务注解@Transactional
+
+```java
+@Service
+public class StudentService {
+    
+    @Autowired
+    private StudentDao studentDao;
+
+
+    @Transactional
+    public void changeInfo(){
+        studentDao.updateAgeById(100,1);
+        System.out.println("-----------");
+        int i = 1/0;
+        studentDao.updateNameById("test1",1);
+    }
+}
+```
+
+在上面的changeInfo方法中，`int i = 1/0;`语句会产生报错，事务检查到报错信息，就不会进行事务的提交，而是进行事务回滚。
