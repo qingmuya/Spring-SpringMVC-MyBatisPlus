@@ -2134,3 +2134,272 @@ public class StudentService {
 ```
 
 在上面的changeInfo方法中，`int i = 1/0;`语句会产生报错，事务检查到报错信息，就不会进行事务的提交，而是进行事务回滚。
+
+
+
+#### 事务属性：只读
+
+对于业务层而言，`@Translation`注解还有一个属性是只读：如其名字，其会明确告诉数据库，这个操作不涉及写操作。这样数据库就能够针对查询操作来进行优化。
+
+设置方法
+
+```Java
+// readOnly = true把当前事务设置为只读 默认是false!
+@Transactional(readOnly = true)
+```
+
+@Translation注解可以存在于类上也可以存在于方法上，对一个方法来说，离它最近的 @Transactional 注解中的事务属性设置生效且覆盖其他的`@Translation`注解（例如方法上的会覆盖类上的）。所以只需要对查询方法上进行只读注解即可。
+
+
+
+#### 事务属性：超时时间
+
+超时属性，设定秒数，一旦方法执行时间超过限制就进行事务回滚，释放资源。
+
+设置方法
+
+```java
+// 3s
+@Transactional(timeout = 3)
+```
+
+
+
+#### 事务属性：事务异常
+
+实际上，事务处理的异常的范围不是全部的异常，也就是说存在某些异常会使事务回滚失败但是数据仍然被修改。
+
+默认只针对运行时异常回滚，编译时异常不会滚。
+
+##### 设置回滚异常
+
+rollbackFor属性：指定哪些异常类才会回滚,默认是 RuntimeException and Error 异常方可回滚!
+
+```Java
+/**
+ * timeout设置事务超时时间,单位秒! 默认: -1 永不超时,不限制事务时间!
+ * rollbackFor = 指定哪些异常才会回滚,默认是 RuntimeException and Error 异常方可回滚!
+ * noRollbackFor = 指定哪些异常不会回滚, 默认没有指定,如果指定,应该在rollbackFor的范围内!
+ */
+@Transactional(readOnly = false,timeout = 3,rollbackFor = Exception.class)
+public void changeInfo() throws FileNotFoundException {
+    studentDao.updateAgeById(100,1);
+    //主动抛出一个检查异常,测试! 发现不会回滚,因为不在rollbackFor的默认范围内! 
+    new FileInputStream("xxxx");
+    studentDao.updateNameById("test1",1);
+}
+```
+
+##### 设置不回滚的异常
+
+在默认设置和已有设置的基础上，再指定一个异常类型，碰到它不回滚。
+
+noRollbackFor属性：指定哪些异常不会回滚, 默认没有指定,如果指定,应该在rollbackFor的范围内!
+
+```Java
+@Service
+public class StudentService {
+
+    @Autowired
+    private StudentDao studentDao;
+
+    /**
+     * timeout设置事务超时时间,单位秒! 默认: -1 永不超时,不限制事务时间!
+     * rollbackFor = 指定哪些异常才会回滚,默认是 RuntimeException and Error 异常方可回滚!
+     * noRollbackFor = 指定哪些异常不会回滚, 默认没有指定,如果指定,应该在rollbackFor的范围内!
+     */
+    @Transactional(readOnly = false,timeout = 3,rollbackFor = Exception.class,noRollbackFor = FileNotFoundException.class)
+    public void changeInfo() throws FileNotFoundException {
+        studentDao.updateAgeById(100,1);
+        //主动抛出一个检查异常,测试! 发现不会回滚,因为不在rollbackFor的默认范围内!
+        new FileInputStream("xxxx");
+        studentDao.updateNameById("test1",1);
+    }
+}
+```
+
+
+
+#### 事务属性：事务隔离级别
+
+事务隔离级别
+
+数据库事务的隔离级别是指在多个事务并发执行时，数据库系统为了保证数据一致性所遵循的规定。常见的隔离级别包括：
+
+1. 读未提交（Read Uncommitted）：事务可以读取未被提交的数据，容易产生脏读、不可重复读和幻读等问题。实现简单但不太安全，一般不用。
+2. 读已提交（Read Committed）：事务只能读取已经提交的数据，可以避免脏读问题，但可能引发不可重复读和幻读。
+3. 可重复读（Repeatable Read）：在一个事务中，相同的查询将返回相同的结果集，不管其他事务对数据做了什么修改。可以避免脏读和不可重复读，但仍有幻读的问题。
+4. 串行化（Serializable）：最高的隔离级别，完全禁止了并发，只允许一个事务执行完毕之后才能执行另一个事务。可以避免以上所有问题，但效率较低，不适用于高并发场景。
+
+不同的隔离级别适用于不同的场景，需要根据实际业务需求进行选择和调整。
+
+事务隔离级别设置
+
+```Java
+@Service
+public class StudentService {
+
+    @Autowired
+    private StudentDao studentDao;
+
+    /**
+     * timeout设置事务超时时间,单位秒! 默认: -1 永不超时,不限制事务时间!
+     * rollbackFor = 指定哪些异常才会回滚,默认是 RuntimeException and Error 异常方可回滚!
+     * noRollbackFor = 指定哪些异常不会回滚, 默认没有指定,如果指定,应该在rollbackFor的范围内!
+     * isolation = 设置事务的隔离级别,mysql默认是repeatable read!
+     */
+    @Transactional(readOnly = false,
+                   timeout = 3,
+                   rollbackFor = Exception.class,
+                   noRollbackFor = FileNotFoundException.class,
+                   isolation = Isolation.REPEATABLE_READ)
+    public void changeInfo() throws FileNotFoundException {
+        studentDao.updateAgeById(100,1);
+        //主动抛出一个检查异常,测试! 发现不会回滚,因为不在rollbackFor的默认范围内!
+        new FileInputStream("xxxx");
+        studentDao.updateNameById("test1",1);
+    }
+}
+```
+
+
+
+#### 事务属性：事务传播行为
+
+对于业务层，方法之间可能存在调用关系，问题在于方法之间的事务关系是怎么样的？
+
+  1. 事务传播行为要研究的问题
+
+      ![](./assets/img012.faac2cb7.png)
+
+      举例代码：
+
+```Java
+@Transactional
+public void MethodA(){
+    // ...
+    MethodB();
+    // ...
+}
+
+//在被调用的子方法中设置传播行为，代表如何处理调用的事务！ 是加入，还是新事务等！
+@Transactional(propagation = Propagation.REQUIRES_NEW)
+public void MethodB(){
+    // ...
+}
+
+```
+  2. propagation属性
+
+      @Transactional 注解通过 propagation 属性设置事务的传播行为。它的默认值是：
+
+```Java
+Propagation propagation() default Propagation.REQUIRED;
+
+```
+
+  propagation 属性的可选值由 org.springframework.transaction.annotation.Propagation 枚举类提供：
+
+| 名称             | 含义                                               |
+| ---------------- | -------------------------------------------------- |
+| REQUIRED  默认值 | 如果父方法有事务，就加入，如果没有就新建自己独立！ |
+| REQUIRES_NEW     | 不管父方法是否有事务，我都新建事务，都是独立的！   |
+
+  3. 测试
+      1. 声明两个业务方法
+
+```Java
+@Service
+public class StudentService {
+
+    @Autowired
+    private StudentDao studentDao;
+
+    /**
+     * timeout设置事务超时时间,单位秒! 默认: -1 永不超时,不限制事务时间!
+     * rollbackFor = 指定哪些异常才会回滚,默认是 RuntimeException and Error 异常方可回滚!
+     * noRollbackFor = 指定哪些异常不会回滚, 默认没有指定,如果指定,应该在rollbackFor的范围内!
+     * isolation = 设置事务的隔离级别,mysql默认是repeatable read!
+     */
+    @Transactional(readOnly = false,
+                   timeout = 3,
+                   rollbackFor = Exception.class,
+                   noRollbackFor = FileNotFoundException.class,
+                   isolation = Isolation.REPEATABLE_READ)
+    public void changeInfo() throws FileNotFoundException {
+        studentDao.updateAgeById(100,1);
+        //主动抛出一个检查异常,测试! 发现不会回滚,因为不在rollbackFor的默认范围内!
+        new FileInputStream("xxxx");
+        studentDao.updateNameById("test1",1);
+    }
+    
+
+    /**
+     * 声明两个独立修改数据库的事务业务方法
+     */
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void changeAge(){
+        studentDao.updateAgeById(99,1);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void changeName(){
+        studentDao.updateNameById("test2",1);
+        int i = 1/0;
+    }
+
+}
+```
+  2. 声明一个整合业务方法
+
+```Java
+@Service
+public class TopService {
+
+    @Autowired
+    private StudentService studentService;
+
+    @Transactional
+    public void  topService(){
+        studentService.changeAge();
+        studentService.changeName();
+    }
+}
+
+```
+  3. 添加传播行为测试
+
+```Java
+@SpringJUnitConfig(classes = AppConfig.class)
+public class TxTest {
+
+    @Autowired
+    private StudentService studentService;
+
+    @Autowired
+    private TopService topService;
+
+    @Test
+    public void  testTx() throws FileNotFoundException {
+        topService.topService();
+    }
+}
+
+```
+
+  **注意：**
+
+​    在同一个类中，对于@Transactional注解的方法调用，事务传播行为不会生效。这是因为Spring框架中使用代理模式实现了事务机制，在同一个类中的方法调用并不经过代理，而是通过对象的方法调用，因此@Transactional注解的设置不会被代理捕获，也就不会产生任何事务传播行为的效果。
+
+  4. 其他传播行为值（了解）
+      1. Propagation.REQUIRED：如果当前存在事务，则加入当前事务，否则创建一个新事务。
+      2. Propagation.REQUIRES_NEW：创建一个新事务，并在新事务中执行。如果当前存在事务，则挂起当前事务，即使新事务抛出异常，也不会影响当前事务。
+      3. Propagation.NESTED：如果当前存在事务，则在该事务中嵌套一个新事务，如果没有事务，则与Propagation.REQUIRED一样。
+      4. Propagation.SUPPORTS：如果当前存在事务，则加入该事务，否则以非事务方式执行。
+      5. Propagation.NOT_SUPPORTED：以非事务方式执行，如果当前存在事务，挂起该事务。
+      6. Propagation.MANDATORY：必须在一个已有的事务中执行，否则抛出异常。
+      7. Propagation.NEVER：必须在没有事务的情况下执行，否则抛出异常。
+
+**总结**
+
+使用默认即可
