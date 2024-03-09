@@ -2403,3 +2403,302 @@ public class TxTest {
 **总结**
 
 使用默认即可
+
+
+
+# SpringBoot3
+
+### 基础
+
+#### 开发步骤
+
+1. **创建Maven工程**
+2. **添加依赖(springboot父工程依赖 , web启动器依赖)**
+3. **编写启动引导类(springboot项目运行的入口)**
+4. **编写处理器Controller**
+5. **启动项目**
+
+#### 添加依赖
+
+1. 添加父工程坐标
+
+SpringBoot可以帮我们方便的管理项目依赖 , 在Spring Boot提供了一个名为**spring-boot-starter-parent**的工程，里面已经对各种常用依赖的版本进行了管理，我们的项目需要以这个项目为父工程，这样我们就不用操心依赖的版本问题了，需要什么依赖，直接引入坐标(不需要添加版本)即可！
+
+```XML
+<!--所有springboot项目都必须继承自 spring-boot-starter-parent-->
+<parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.0.5</version>
+</parent>
+```
+
+2. 添加web启动器
+
+为了让Spring Boot帮我们完成各种自动配置，我们必须引入Spring Boot提供的**自动配置依赖**，我们称为**启动器**。因为我们是web项目，这里我们引入web启动器，在 pom.xml 文件中加入如下依赖：
+
+```XML
+<dependencies>
+<!--web开发的场景启动器-->
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+</dependencies>
+```
+#### 创建启动类
+
+创建package：com.qingmuy
+
+创建启动类：Main
+
+```Java
+package com.qingmuy;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+/**
+ * @SpringBootApplication是一个特殊的注解，用于标识一个Spring Boot应用程序的入口类。它的主要作用是将三个常用注解组合在一起，简化了配置的过程。
+ *
+ * 具体而言，@SpringBootApplication注解包含以下三个注解的功能：
+ *     @Configuration：将该类标识为应用程序的配置类。它允许使用Java代码定义和配置Bean。
+ *     @EnableAutoConfiguration：启用Spring Boot的自动配置机制。它根据项目的依赖项自动配置Spring应用程序的行为。自动配置根据类路径、注解和配置属性等条件来决定要使用的功能和配置。
+ *     @ComponentScan：自动扫描并加载应用程序中的组件，如控制器、服务、存储库等。它默认扫描@SpringBootApplication注解所在类的包及其子包中的组件。
+ *
+ * 使用@SpringBootApplication注解，可以将上述三个注解的功能集中在一个注解上，简化了配置文件的编写和组件的加载和扫描过程。它是Spring Boot应用程序的入口点，标识了应用程序的主类，
+ * 并告诉Spring Boot在启动时应如何配置和加载应用程序。
+ */
+@SpringBootApplication
+public class Main {
+    
+    //SpringApplication.run() 方法是启动 Spring Boot 应用程序的关键步骤。它创建应用程序上下文、
+    // 自动配置应用程序、启动应用程序，并处理命令行参数，使应用程序能够运行和提供所需的功能
+    
+    public static void main(String[] args) {
+        SpringApplication.run(Main.class, args);
+    }
+}
+```
+#### 编写处理器Controller
+
+创建package：com.qingmuy.controller
+
+创建类：TestController
+
+注意： IoC和DI注解需要在启动类的同包或者子包下方可生效！无需指定，约束俗称。
+
+```Java
+package com.qingmuy.controller;
+
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+public class TestController {
+    @GetMapping("/hello")
+    public String hello(){
+        return "Hello,Spring Boot 3!";
+    }
+}
+```
+
+
+
+### SpringBoot3 配置文件
+
+#### 统一配置管理
+
+总结：
+
+- 集中式管理配置。统一在一个文件完成程序功能参数设置和自定义参数声明 。
+- 位置：resources文件夹下，必须命名application  后缀 .properties / .yaml /  .yml 。
+- 如果同时存在application.properties | application.yml(.yaml) , properties的优先级更高。
+
+
+
+#### 属性配置文件使用
+
+1. 配置文件
+
+    在 resource 文件夹下面新建 application.properties 配置文件
+
+```.properties
+# application.properties 为统一配置文件
+# 内部包含: 固定功能的key,自定义的key
+# 此处的配置信息,我们都可以在程序中@Value等注解读取
+
+# 固定的key
+# 启动端口号
+server.port=80 
+
+# 自定义
+spring.jdbc.datasource.driverClassName=com.mysql.cj.jdbc.driver
+spring.jdbc.datasource.url=jdbc:mysql:///springboot_01
+spring.jdbc.datasource.username=root
+spring.jdbc.datasource.password=root
+```
+2. 读取配置文件
+
+```Java
+@Component
+public class DataSourceProperties {
+
+    @Value("${spring.jdbc.datasource.driverClassName}")
+    private String driverClassName;
+
+    @Value("${spring.jdbc.datasource.url}")
+    private String url;
+
+    @Value("${spring.jdbc.datasource.username}")
+    private String username;
+
+    @Value("${spring.jdbc.datasource.password}")
+    private String password;
+    
+    @Override
+    public String toString() {
+        return "DataSourceProperties{" +
+                "driverClassName='" + driverClassName + '\'' +
+                ", url='" + url + '\'' +
+                ", username='" + username + '\'' +
+                ", password='" + password + '\'' +
+                '}';
+    }
+}
+```
+3. 测试效果
+
+    在controller注入，输出进行测试
+
+```Java
+@Autowired
+private DataSourceProperties dataSourceProperties ;
+
+@RequestMapping(path = "/hello")
+public String sayHello() {
+  System.out.println(dataSourceProperties);
+  return "Hello Spring Boot ! " ;
+}
+```
+
+
+
+#### YAML 配置文件使用
+
+yaml语法说明
+1. 数据结构用树形结构呈现，通过缩进来表示层级，
+2. 连续的项目（集合）通过减号 ” - ” 来表示
+3. 键值结构里面的key/value对用冒号 ” : ” 来分隔。
+4. YAML配置文件的扩展名是yaml 或 yml
+
+例如：
+
+```YAML
+# YAML配置文件示例
+app_name: 我的应用程序
+version: 1.0.0
+author: 张三
+
+database:
+  host: localhost
+  port: 5432
+  username: admin
+  password: password123
+
+features:
+  - 登录
+  - 注册
+  - 仪表盘
+
+settings:
+  analytics: true
+  theme: dark
+```
+2. 配置文件
+
+```YAML
+spring:
+  jdbc:
+    datasource:
+      driverClassName: com.mysql.jdbc.Driver
+      url: jdbc:mysql:///springboot_02
+      username: root
+      password: root
+      
+server:
+  port: 80
+```
+
+
+
+#### 多环境配置和使用
+在Spring Boot中，可以使用多环境配置来根据不同的运行环境（如开发、测试、生产）加载不同的配置。SpringBoot支持多环境配置让应用程序在不同的环境中使用不同的配置参数，例如数据库连接信息、日志级别、缓存配置等。
+
+以下是实现Spring Boot多环境配置的常见方法：
+
+1. 属性文件分离：将应用程序的配置参数分离到不同的属性文件中，每个环境对应一个属性文件。例如，可以创建`application-dev.properties`、`application-prod.properties`和`application-test.properties`等文件。在这些文件中，可以定义各自环境的配置参数，如数据库连接信息、端口号等。然后，在`application.properties`中通过`spring.profiles.active`属性指定当前使用的环境。Spring Boot会根据该属性来加载对应环境的属性文件，覆盖默认的配置。
+
+2. YAML配置文件：与属性文件类似，可以将配置参数分离到不同的YAML文件中，每个环境对应一个文件。例如，可以创建`application-dev.yml`、`application-prod.yml`和`application-test.yml`等文件。在这些文件中，可以使用YAML语法定义各自环境的配置参数。同样，通过`spring.profiles.active`属性指定当前的环境，Spring Boot会加载相应的YAML文件。
+
+3. 命令行参数(动态)：可以通过命令行参数来指定当前的环境。例如，可以使用`--spring.profiles.active=dev`来指定使用开发环境的配置。
+
+通过上述方法，Spring Boot会根据当前指定的环境来加载相应的配置文件或参数，从而实现多环境配置。这样可以简化在不同环境之间的配置切换，并且确保应用程序在不同环境中具有正确的配置。
+
+多环境配置（基于方式2实践）
+
+> 创建开发、测试、生产三个环境的配置文件
+
+application-dev.yml（开发）
+
+```YAML
+spring:
+  jdbc:
+    datasource:
+      driverClassName: com.mysql.cj.jdbc.Driver
+      url: jdbc:mysql:///dev
+      username: root
+      password: root
+```
+
+  application-test.yml（测试）
+
+```YAML
+spring:
+  jdbc:
+    datasource:
+      driverClassName: com.mysql.cj.jdbc.Driver
+      url: jdbc:mysql:///test
+      username: root
+      password: root
+```
+
+  application-prod.yml（生产）
+
+```YAML
+spring:
+  jdbc:
+    datasource:
+      driverClassName: com.mysql.cj.jdbc.Driver
+      url: jdbc:mysql:///prod
+      username: root
+      password: root
+```
+  3. 环境激活
+
+```YAML
+spring:
+  profiles:
+    active: dev
+```
+  4. 测试效果
+
+      ![](./assets/image-1709990862438-9.png)
+
+      **注意 :**
+
+      如果设置了spring.profiles.active，并且和application有重叠属性，以active设置优先。
+
+      如果设置了spring.profiles.active，和application无重叠属性，application设置依然生效！
+      
+      如果同时激活了两个环境，则后激活的生效。
