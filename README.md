@@ -2702,3 +2702,523 @@ spring:
       如果设置了spring.profiles.active，和application无重叠属性，application设置依然生效！
       
       如果同时激活了两个环境，则后激活的生效。
+
+
+
+### SpringBoot3 整合 SpringMVC
+
+#### 实现
+
+在配置文件pom.xml中声明继承父工程
+
+```xml
+<parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.0.5</version>
+</parent>
+```
+
+声明启动器
+
+```xml
+<dependencies>
+    <!-- web开发的场景启动器 -->
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+</dependencies>
+```
+
+实现启动类
+
+```java
+@SpringBootApplication
+public class Main {
+    public static void main(String[] args) {
+        SpringApplication.run(Main.class, args);
+    }
+}
+```
+
+创建实体类
+
+```java
+@Data
+public class User {
+    private String username ;
+    private String password ;
+    private Integer age ;
+    private String sex ;
+}
+```
+
+编写Controller
+
+```java
+@RestController
+@RequestMapping("/user")
+public class UserController {
+
+    @GetMapping("/getUser")
+    public User getUser(){
+        
+        User user = new User();
+        user.setUsername("杨过");
+        user.setPassword("123456");
+        user.setAge(18);
+        user.setSex("男");
+        return user;
+    }
+}
+```
+
+访问测试即可。
+
+
+
+#### Web 相关配置
+
+位置：application.yml
+
+```YAML
+# web相关的配置
+# https://docs.spring.io/spring-boot/docs/current/reference/html/application-properties.html#appendix.application-properties.server
+server:
+  # 端口号设置
+  port: 80
+  # 项目根路径
+  servlet:
+    context-path: /boot
+```
+
+当涉及Spring Boot的Web应用程序配置时，以下是五个重要的配置参数：
+
+1. `server.port`: 指定应用程序的HTTP服务器端口号。默认情况下，Spring Boot使用8080作为默认端口。您可以通过在配置文件中设置`server.port`来更改端口号。
+2. `server.servlet.context-path`: 设置应用程序的上下文路径。这是应用程序在URL中的基本路径。默认情况下，上下文路径为空。您可以通过在配置文件中设置`server.servlet.context-path`属性来指定自定义的上下文路径。
+3. `spring.mvc.view.prefix`和`spring.mvc.view.suffix`: 这两个属性用于配置视图解析器的前缀和后缀。视图解析器用于解析控制器返回的视图名称，并将其映射到实际的视图页面。`spring.mvc.view.prefix`定义视图的前缀，`spring.mvc.view.suffix`定义视图的后缀。
+4. `spring.resources.static-locations`: 配置静态资源的位置。静态资源可以是CSS、JavaScript、图像等。默认情况下，Spring Boot会将静态资源放在`classpath:/static`目录下。您可以通过在配置文件中设置`spring.resources.static-locations`属性来自定义静态资源的位置。
+5. `spring.http.encoding.charset`和`spring.http.encoding.enabled`: 这两个属性用于配置HTTP请求和响应的字符编码。`spring.http.encoding.charset`定义字符编码的名称（例如UTF-8），`spring.http.encoding.enabled`用于启用或禁用字符编码的自动配置。
+
+这些是在Spring Boot的配置文件中与Web应用程序相关的一些重要配置参数。根据您的需求，您可以在配置文件中设置这些参数来定制和配置您的Web应用程序
+
+
+
+#### 静态资源处理
+
+1. 默认路径
+
+​	在springboot中就定义了静态资源的默认查找路径：
+
+```Java
+package org.springframework.boot.autoconfigure.web;
+//..................
+public static class Resources {
+        private static final String[] CLASSPATH_RESOURCE_LOCATIONS = new String[]{"classpath:/META-INF/resources/", "classpath:/resources/", "classpath:/static/", "classpath:/public/"};
+        private String[] staticLocations;
+        private boolean addMappings;
+        private boolean customized;
+        private final Chain chain;
+        private final Cache cache;
+
+        public Resources() {
+            this.staticLocations = CLASSPATH_RESOURCE_LOCATIONS;
+            this.addMappings = true;
+            this.customized = false;
+            this.chain = new Chain();
+            this.cache = new Cache();
+        }
+//...........        
+```
+
+**默认的静态资源路径为：**
+
+**· classpath:/META-INF/resources/**
+
+**· classpath:/resources/**
+
+**· classpath:/static/**
+
+**· classpath:/public/**
+
+我们只要静态资源放在这些目录中任何一个，SpringMVC都会帮我们处理。 我们习惯会把静态资源放在classpath:/static/ 目录下。在resources目录下创建index.html文件
+
+![](./assets/image-1710037032465-4.png)
+
+打开浏览器输入 : [http://localhost:8080/index.html](http://localhost:8080/index.html)
+
+2. 覆盖路径
+
+```YAML
+# web相关的配置
+# https://docs.spring.io/spring-boot/docs/current/reference/html/application-properties.html#appendix.application-properties.server
+server:
+  # 端口号设置
+  port: 80
+  # 项目根路径
+  servlet:
+    context-path: /boot
+spring:
+  web:
+    resources:
+      # 配置静态资源地址,如果设置,会覆盖默认值
+      static-locations: classpath:/webapp
+```
+
+![](./assets/image-1710036984531-1.png)
+
+访问地址：[http://localhost/boot/login.html](http://localhost/boot/login.html)
+
+
+
+#### 自定义拦截器(SpringMVC 配置)
+
+1. 拦截器声明
+
+```Java
+@Component
+public class MyInterceptor implements HandlerInterceptor {
+    @Override
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+        System.out.println("MyInterceptor拦截器的preHandle方法执行....");
+        return true;
+    }
+
+    @Override
+    public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler, ModelAndView modelAndView) throws Exception {
+        System.out.println("MyInterceptor拦截器的postHandle方法执行....");
+    }
+
+    @Override
+    public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) throws Exception {
+        System.out.println("MyInterceptor拦截器的afterCompletion方法执行....");
+    }
+}
+```
+2. 拦截器配置
+
+
+正常使用配置类，只要保证，**配置类要在启动类的同包或者子包方可生效！**
+
+```Java
+@Configuration
+public class MvcConfig implements WebMvcConfigurer {
+
+    @Autowired
+    private MyInterceptor myInterceptor ;
+
+    /**
+     * /**  拦截当前目录及子目录下的所有路径 /user/**   /user/findAll  /user/order/findAll
+     * /*   拦截当前目录下的以及子路径   /user/*     /user/findAll
+     * @param registry
+     */
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(myInterceptor).addPathPatterns("/**");
+    }
+}
+```
+3. 拦截器效果测试
+
+    ![](./assets/image-1710037096977-7.png)
+
+
+
+### SpringBoot3 整合 Mybatis
+
+#### MyBatis整合步骤
+
+  1. 导入依赖：在您的Spring Boot项目的构建文件（如pom.xml）中添加MyBatis和数据库驱动的相关依赖。例如，如果使用MySQL数据库，您需要添加MyBatis和MySQL驱动的依赖。
+  2. 配置数据源：在`application.properties`或`application.yml`中配置数据库连接信息，包括数据库URL、用户名、密码、mybatis的功能配置等。
+  3. 创建实体类：创建与数据库表对应的实体类。
+  4. 创建Mapper接口：创建与数据库表交互的Mapper接口。
+  5. 创建Mapper接口SQL实现： 可以使用mapperxml文件或者注解方式
+  6. 创建程序启动类
+  7. 注解扫描：在Spring Boot的主应用类上添加`@MapperScan`注解，用于扫描和注册Mapper接口。
+  8. 使用Mapper接口：在需要使用数据库操作的地方，通过依赖注入或直接实例化Mapper接口，并调用其中的方法进行数据库操作。
+
+
+
+#### Mybatis 整合实践
+
+1. 创建项目
+2. 导入依赖
+
+```xml
+<parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.0.5</version>
+</parent>
+
+<dependencies>
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+
+    <dependency>
+        <groupId>org.mybatis.spring.boot</groupId>
+        <artifactId>mybatis-spring-boot-starter</artifactId>
+        <version>3.0.1</version>
+    </dependency>
+
+    <!-- 数据库相关配置启动器 -->
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-jdbc</artifactId>
+    </dependency>
+
+    <!-- 驱动类-->
+    <dependency>
+        <groupId>mysql</groupId>
+        <artifactId>mysql-connector-java</artifactId>
+        <version>8.0.28</version>
+    </dependency>
+
+    <dependency>
+        <groupId>org.projectlombok</groupId>
+        <artifactId>lombok</artifactId>
+        <version>1.18.28</version>
+    </dependency>
+
+</dependencies>
+```
+
+3. application.yml配置文件
+
+```yml
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/studb
+    username: root
+    password: 114514
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+mybatis:
+  configuration:  # setting配置
+    auto-mapping-behavior: full # 是否开启驼峰命名
+    map-underscore-to-camel-case: true  # 是否将下划线转为驼峰
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
+  mapper-locations: classpath:/mappers/*.xml # mapperxml位置
+```
+
+4. 实体类准备
+
+```java
+@Data
+public class Students {
+    private String name;
+    private String gender;
+    private Integer id;
+    private int age;
+    private String classification;
+}
+```
+
+5. Mapper 接口准备
+
+```java
+public interface UserMapper {
+
+    List<User> queryAll();
+}
+```
+
+6. Mapper 接口实现(XML)
+
+​		位置：resources/mapper/UserMapper.xml
+
+```xml
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qingmuy.mapper.UserMapper" >
+
+    <resultMap id="userMap" type="com.qingmuy.pojo.Students">
+        <result column="class" property="classification" jdbcType="VARCHAR" />
+    </resultMap>
+
+    <select id="queryAll" resultMap="userMap">
+        select * from students;
+    </select>
+
+</mapper>
+```
+
+7. 编写三层架构代码
+
+​	controller
+
+```java
+@Slf4j
+@Controller
+@RequestMapping("/user")
+public class UserController {
+
+    @Autowired
+    private UserService userService;
+
+    @GetMapping("/list")
+    @ResponseBody
+    public List<Students> getUser(){
+        List<Students> userList = userService.findList();
+        log.info("查询的user数据为:{}",userList);
+        return userList;
+    }
+
+}
+```
+
+​	service
+
+```java
+package com.qingmuy.service;
+
+import com.qingmuy.mapper.UserMapper;
+import com.qingmuy.pojo.Students;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+@Slf4j
+@Service
+public class UserService {
+
+    @Autowired
+    private UserMapper userMapper;
+
+    public List<Students> findList(){
+        List<Students> users = userMapper.queryAll();
+        log.info("查询全部数据:{}",users);
+        return users;
+    }
+}
+```
+
+​	启动类和接口扫描
+
+```java
+@MapperScan("com.qingmuy.mapper") //mapper接口扫描配置
+@SpringBootApplication
+public class Main {
+    public static void main(String[] args) {
+        SpringApplication.run(Main.class, args);
+    }
+}
+```
+
+
+
+#### 声明式事务整合配置
+
+依赖导入:
+
+```XML
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-jdbc</artifactId>
+</dependency>
+```
+
+注：SpringBoot项目会自动配置一个 DataSourceTransactionManager，所以我们只需在方法（或者类）加上 @Transactional 注解，就自动纳入 Spring 的事务管理了
+
+```Java
+@Transactional
+public void update(){
+    User user = new User();
+    user.setId(1);
+    user.setPassword("test2");
+    user.setAccount("test2");
+    userMapper.update(user);
+}
+```
+
+
+
+#### AOP 整合配置
+
+依赖导入:
+
+```XML
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-aop</artifactId>
+</dependency>
+```
+
+直接使用aop注解即可: 
+
+```Java
+@Component
+@Aspect
+public class LogAdvice {
+
+    @Before("execution(* com..service.*.*(..))")
+    public void before(JoinPoint joinPoint){
+        System.out.println("LogAdvice.before");
+        System.out.println("joinPoint = " + joinPoint);
+    }
+
+}
+```
+
+
+
+### SpringBoot3 项目打包和运行
+
+#### 添加打包插件
+
+  > 在Spring Boot项目中添加`spring-boot-maven-plugin`插件是为了支持将项目打包成可执行的可运行jar包。如果不添加`spring-boot-maven-plugin`插件配置，使用常规的`java -jar`命令来运行打包后的Spring Boot项目是无法找到应用程序的入口点，因此导致无法运行。
+
+```XML
+<!--    SpringBoot应用打包插件-->
+<build>
+    <plugins>
+        <plugin>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-maven-plugin</artifactId>
+        </plugin>
+    </plugins>
+</build>
+```
+
+
+
+#### 执行打包
+
+  在idea点击package进行打包
+
+  可以在编译的target文件中查看jar包
+
+![](./assets/image-1710057087067-1.png)
+
+
+
+#### 命令启动和参数说明
+
+  `java -jar`命令用于在Java环境中执行可执行的JAR文件。下面是关于`java -jar`命令的说明：
+
+```XML
+命令格式：java -jar  [选项] [参数] <jar文件名>
+```
+
+  1. `-D<name>=<value>`：设置系统属性，可以通过`System.getProperty()`方法在应用程序中获取该属性值。例如：`java -jar -Dserver.port=8080 myapp.jar`。
+  2. `-X`：设置JVM参数，例如内存大小、垃圾回收策略等。常用的选项包括：
+      - `-Xmx<size>`：设置JVM的最大堆内存大小，例如 `-Xmx512m` 表示设置最大堆内存为512MB。
+      - `-Xms<size>`：设置JVM的初始堆内存大小，例如 `-Xms256m` 表示设置初始堆内存为256MB。
+  3. `-Dspring.profiles.active=<profile>`：指定Spring Boot的激活配置文件，可以通过`application-<profile>.properties`或`application-<profile>.yml`文件来加载相应的配置。例如：`java -jar -Dspring.profiles.active=dev myapp.jar`。
+
+  启动和测试：
+
+![](./assets/image-1710057106455-4.png)
+
+  注意： -D 参数必须要在jar之前！否者不生效！
