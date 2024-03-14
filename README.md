@@ -3222,3 +3222,157 @@ public class LogAdvice {
 ![](./assets/image-1710057106455-4.png)
 
   注意： -D 参数必须要在jar之前！否者不生效！
+
+
+
+# MyBatis-Plus
+
+MyBatis-Plus  (opens new window)（简称 MP）是一个 MyBatis  (opens new window) 的增强工具，在 MyBatis 的基础上只做增强不做改变，为简化开发、提高效率而生。
+
+
+
+## 核心功能
+
+### 基于 Mapper 接口 CRUD
+
+> 通用 CRUD 封装BaseMapper (opens new window)接口， Mybatis-Plus 启动时自动解析实体表关系映射转换为 Mybatis 内部对象注入容器! 内部包含常见的单表操作！
+
+对`UserMapper`接口继承`BaseMapper`父类，并在父类后面添加实体类（即根据数据库中字段创建的实体类），这样即可直接实现CRUD方法。如下：
+
+```java
+public interface UserMapper extends BaseMapper<User> {}
+```
+
+注意：Mybatis是通过实体类的名称（忽略大小写）寻找数据库下的表的；如果对于实体类命名时与数据库中的表名不一致，可通过在实体类上加@TableName指定哪个表。
+
+#### Insert方法
+
+```Java
+// 插入一条记录
+// T 就是要插入的实体对象
+// 默认主键生成策略为雪花算法（后面讲解）
+int insert(T entity);
+```
+
+| 类型 | 参数名 | 描述     |
+| ---- | ------ | -------- |
+| T    | entity | 实体对象 |
+
+#### Delete方法
+
+```Java
+// 根据 wrapper 中的条件，删除数据
+int delete(@Param(Constants.WRAPPER) Wrapper<T> wrapper);
+
+// 删除（根据ID 批量删除）
+int deleteBatchIds(@Param(Constants.COLLECTION) Collection<? extends Serializable> idList);
+
+// 根据 ID 删除
+int deleteById(Serializable id);
+
+// 根据 columnMap 条件，删除记录
+int deleteByMap(@Param(Constants.COLUMN_MAP) Map<String, Object> columnMap);
+```
+
+| 类型                               | 参数名    | 描述                                 |
+| ---------------------------------- | --------- | ------------------------------------ |
+| Wrapper<T>                         | wrapper   | 实体对象封装操作类（可以为 null）    |
+| Collection<? extends Serializable> | idList    | 主键 ID 列表(不能为 null 以及 empty) |
+| Serializable                       | id        | 主键 ID                              |
+| Map<String, Object>                | columnMap | 表字段 map 对象                      |
+
+#### Update方法
+
+```Java
+// 根据 whereWrapper 条件，将updateEntity的元素覆盖到目标数据行
+int update(@Param(Constants.ENTITY) T updateEntity, 
+            @Param(Constants.WRAPPER) Wrapper<T> whereWrapper);
+
+// 根据 ID 修改  主键属性必须值
+int updateById(@Param(Constants.ENTITY) T entity);
+```
+
+| 类型       | 参数名        | 描述                                                         |
+| ---------- | ------------- | ------------------------------------------------------------ |
+| T          | entity        | 实体对象 (set 条件值,可为 null)                              |
+| Wrapper<T> | updateWrapper | 实体对象封装操作类（可以为 null,里面的 entity 用于生成 where 语句） |
+
+**注意**：
+
+- 在涉及到表的修改的时候，如果Java传入的条件为`null`则代表全部修改
+- 对于要修改的数据，实际上是将传入的对象的值覆盖到表中需要修改的范围，所以产生了以下问题：
+  - 对于实体类（根据数据库中的字段创建的类）的属性，必须使用包装类，而不能使用基本数据类型，原因在于：基本面数据类型是有初始值的，比如int的初始值为0，所以如果使用int作为属性，即便是不想修改int字段，也会被覆盖为0，而使用包装类的话，其数据初始值为`Null`，也就不会修改。
+
+#### Select方法
+
+```Java
+// 根据 ID 查询
+T selectById(Serializable id);
+
+// 根据 entity 条件，查询一条记录
+T selectOne(@Param(Constants.WRAPPER) Wrapper<T> queryWrapper);
+
+// 查询（根据ID 批量查询）
+List<T> selectBatchIds(@Param(Constants.COLLECTION) Collection<? extends Serializable> idList);
+
+// 根据 entity 条件，查询全部记录
+List<T> selectList(@Param(Constants.WRAPPER) Wrapper<T> queryWrapper);
+
+// 查询（根据 columnMap 条件）
+List<T> selectByMap(@Param(Constants.COLUMN_MAP) Map<String, Object> columnMap);
+
+// 根据 Wrapper 条件，查询全部记录
+List<Map<String, Object>> selectMaps(@Param(Constants.WRAPPER) Wrapper<T> queryWrapper);
+
+// 根据 Wrapper 条件，查询全部记录。注意： 只返回第一个字段的值
+List<Object> selectObjs(@Param(Constants.WRAPPER) Wrapper<T> queryWrapper);
+
+// 根据 entity 条件，查询全部记录（并翻页）
+IPage<T> selectPage(IPage<T> page, @Param(Constants.WRAPPER) Wrapper<T> queryWrapper);
+
+// 根据 Wrapper 条件，查询全部记录（并翻页）
+IPage<Map<String, Object>> selectMapsPage(IPage<T> page, @Param(Constants.WRAPPER) Wrapper<T> queryWrapper);
+
+// 根据 Wrapper 条件，查询总记录数
+Integer selectCount(@Param(Constants.WRAPPER) Wrapper<T> queryWrapper);
+```
+
+参数说明
+
+| 类型                               | 参数名       | 描述                                     |
+| ---------------------------------- | ------------ | ---------------------------------------- |
+| Serializable                       | id           | 主键 ID                                  |
+| Wrapper<T>                         | queryWrapper | 实体对象封装操作类（可以为 null）        |
+| Collection<? extends Serializable> | idList       | 主键 ID 列表(不能为 null 以及 empty)     |
+| Map<String, Object>                | columnMap    | 表字段 map 对象                          |
+| IPage<T>                           | page         | 分页查询条件（可以为 RowBounds.DEFAULT） |
+
+
+
+### 基于 Service 接口 CRUD
+
+> 通用 Service CRUD 封装IService (opens new window)接口，进一步封装 CRUD 采用 get 查询单行 remove 删除 list 查询集合 page 分页 前缀命名方式区分 Mapper 层避免混淆。
+
+实现该方法的原因是因为，从后端到数据库需要经过三层：Controller、Service、Mapper层，然而很多情况下Service层仅仅是负责了值的传递，所以可以实现在Service层CRUD。
+
+#### 对比Mapper接口CRUD区别：
+
+- service添加了批量方法
+- service层的方法自动添加事务
+
+#### 使用Iservice接口方式
+
+接口继承IService接口
+
+```Java
+public interface UserService extends IService<User> {}
+```
+
+类继承ServiceImpl实现类
+
+```Java
+@Service
+public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements UserService{}
+```
+
+以上操作复杂的原因在于：IService接口仅实现了部分方法，而另一部分方法在ServiceImpl类中实现；而且继承ServiceImpl类，需要传递两个参数：一是UserMapper类型，二是实现类（基于数据库字段的实现类）。
