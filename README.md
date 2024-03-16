@@ -3376,3 +3376,722 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
 ```
 
 以上操作复杂的原因在于：IService接口仅实现了部分方法，而另一部分方法在ServiceImpl类中实现；而且继承ServiceImpl类，需要传递两个参数：一是UserMapper类型，二是实现类（基于数据库字段的实现类）。
+
+#### CRUD方法介绍
+
+```Java
+保存：
+// 插入一条记录（选择字段，策略插入）
+boolean save(T entity);
+// 插入（批量）
+boolean saveBatch(Collection<T> entityList);
+// 插入（批量）
+boolean saveBatch(Collection<T> entityList, int batchSize);
+
+修改或者保存：
+// TableId 注解存在更新记录，否插入一条记录
+boolean saveOrUpdate(T entity);
+// 根据updateWrapper尝试更新，否继续执行saveOrUpdate(T)方法
+boolean saveOrUpdate(T entity, Wrapper<T> updateWrapper);
+// 批量修改插入
+boolean saveOrUpdateBatch(Collection<T> entityList);
+// 批量修改插入
+boolean saveOrUpdateBatch(Collection<T> entityList, int batchSize);
+
+移除：
+// 根据 queryWrapper 设置的条件，删除记录
+boolean remove(Wrapper<T> queryWrapper);
+// 根据 ID 删除
+boolean removeById(Serializable id);
+// 根据 columnMap 条件，删除记录
+boolean removeByMap(Map<String, Object> columnMap);
+// 删除（根据ID 批量删除）
+boolean removeByIds(Collection<? extends Serializable> idList);
+
+更新：
+// 根据 UpdateWrapper 条件，更新记录 需要设置sqlset
+boolean update(Wrapper<T> updateWrapper);
+// 根据 whereWrapper 条件，更新记录
+boolean update(T updateEntity, Wrapper<T> whereWrapper);
+// 根据 ID 选择修改
+boolean updateById(T entity);
+// 根据ID 批量更新
+boolean updateBatchById(Collection<T> entityList);
+// 根据ID 批量更新
+boolean updateBatchById(Collection<T> entityList, int batchSize);
+
+数量： 
+// 查询总记录数
+int count();
+// 根据 Wrapper 条件，查询总记录数
+int count(Wrapper<T> queryWrapper);
+
+查询：
+// 根据 ID 查询
+T getById(Serializable id);
+// 根据 Wrapper，查询一条记录。结果集，如果是多个会抛出异常，随机取一条加上限制条件 wrapper.last("LIMIT 1")
+T getOne(Wrapper<T> queryWrapper);
+// 根据 Wrapper，查询一条记录
+T getOne(Wrapper<T> queryWrapper, boolean throwEx);
+// 根据 Wrapper，查询一条记录
+Map<String, Object> getMap(Wrapper<T> queryWrapper);
+// 根据 Wrapper，查询一条记录
+<V> V getObj(Wrapper<T> queryWrapper, Function<? super Object, V> mapper);
+
+集合：
+// 查询所有
+List<T> list();
+// 查询列表
+List<T> list(Wrapper<T> queryWrapper);
+// 查询（根据ID 批量查询）
+Collection<T> listByIds(Collection<? extends Serializable> idList);
+// 查询（根据 columnMap 条件）
+Collection<T> listByMap(Map<String, Object> columnMap);
+// 查询所有列表
+List<Map<String, Object>> listMaps();
+// 查询列表
+List<Map<String, Object>> listMaps(Wrapper<T> queryWrapper);
+// 查询全部记录
+List<Object> listObjs();
+// 查询全部记录
+<V> List<V> listObjs(Function<? super Object, V> mapper);
+// 根据 Wrapper 条件，查询全部记录
+List<Object> listObjs(Wrapper<T> queryWrapper);
+// 根据 Wrapper 条件，查询全部记录
+<V> List<V> listObjs(Wrapper<T> queryWrapper, Function<? super Object, V> mapper);
+
+```
+
+
+
+### 分页查询实现
+
+1. 导入分页插件
+
+在启动类中导入插件
+
+```java
+@Bean
+public MybatisPlusInterceptor mybatisPlusInterceptor() {
+    MybatisPlusInterceptor interceptor = new MybatisPlusInterceptor();
+    interceptor.addInnerInterceptor(new PaginationInnerInterceptor(DbType.MYSQL));	// DbType声明了数据库类型
+    return interceptor;
+}
+```
+
+2. 使用分页查询
+
+```java
+@Test
+public void testPageQuery(){
+    //设置分页参数
+    Page<User> page = new Page<>(1, 5);	// Page后面的<>指定类接值，Page后(页码，查询容量)
+    userMapper.selectPage(page, null);	// page为分页查询的配置，后面为查询的条件
+    //获取分页数据
+    List<User> list = page.getRecords();
+    list.forEach(System.out::println);
+    System.out.println("当前页："+page.getCurrent());
+    System.out.println("每页显示的条数："+page.getSize());
+    System.out.println("总记录数："+page.getTotal());
+    System.out.println("总页数："+page.getPages());
+    System.out.println("是否有上一页："+page.hasPrevious());
+    System.out.println("是否有下一页："+page.hasNext());
+}
+```
+
+3. 分页添加到自定义方法
+
+在Mapper接口中声明方法
+
+```java
+//传入参数携带Ipage接口
+//返回结果为IPage
+IPage<User> selectPageVo(IPage<?> page, Integer id);
+```
+
+在Mapper.xml文件中编写好Sql语句
+
+注意：这里的resultType填写实体类，因为Ipage是Mybatis-Plus自行封装的结果。
+
+```xml
+<select id="selectPageVo" resultType="xxx.xxx.xxx.User">
+    SELECT * FROM user WHERE id > #{id}
+</select>
+```
+
+
+
+### 条件构造器使用
+
+#### 条件构造器作用
+
+条件构造器就是上面Mapper接口中传递的条件，通过条件构造器可以灵活的构建查询条件，通过链式调用组合条件，比如：
+
+```java
+QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+queryWrapper.eq("name", "John"); // 添加等于条件
+queryWrapper.ne("age", 30); // 添加不等于条件
+queryWrapper.like("email", "@gmail.com"); // 添加模糊匹配条件
+等同于： 
+delete from user where name = "John" and age != 30
+                                  and email like "%@gmail.com%"
+// 根据 entity 条件，删除记录
+int delete(@Param(Constants.WRAPPER) Wrapper<T> wrapper);
+```
+
+#### 条件构造器继承结构
+
+条件构造器类结构：
+
+![](./assets/image-1710559266128-1.png)
+
+Wrapper ： 条件构造抽象类，最顶端父类
+
+- AbstractWrapper ： 用于查询条件封装，生成 sql 的 where 条件
+    - QueryWrapper ： 查询/删除条件封装
+    - UpdateWrapper ： 修改条件封装
+    - AbstractLambdaWrapper ： 使用Lambda 语法
+        - LambdaQueryWrapper ：用于Lambda语法使用的查询Wrapper
+        - LambdaUpdateWrapper ： Lambda 更新封装Wrapper
+
+#### 基于 QueryWrapper 组装条件
+
+![](./assets/image-1710559377552-4.png)
+
+组装查询条件：
+
+```Java
+@Test
+public void test01(){
+    //查询用户名包含a，年龄在20到30之间，并且邮箱不为null的用户信息
+    //SELECT id,username AS name,age,email,is_deleted FROM t_user WHERE is_deleted=0 AND (username LIKE ? AND age BETWEEN ? AND ? AND email IS NOT NULL)
+    QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+    queryWrapper.like("username", "a")
+            .between("age", 20, 30)
+            .isNotNull("email");
+    List<User> list = userMapper.selectList(queryWrapper);
+    list.forEach(System.out::println);
+
+```
+
+组装排序条件:
+
+```Java
+@Test
+public void test02(){
+    //按年龄降序查询用户，如果年龄相同则按id升序排列
+    //SELECT id,username AS name,age,email,is_deleted FROM t_user WHERE is_deleted=0 ORDER BY age DESC,id ASC
+    QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+    queryWrapper
+            .orderByDesc("age")
+            .orderByAsc("id");
+    List<User> users = userMapper.selectList(queryWrapper);
+    users.forEach(System.out::println);
+}
+```
+
+组装删除条件:
+
+```Java
+@Test
+public void test03(){
+    //删除email为空的用户
+    //DELETE FROM t_user WHERE (email IS NULL)
+    QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+    queryWrapper.isNull("email");
+    //条件构造器也可以构建删除语句的条件
+    int result = userMapper.delete(queryWrapper);
+    System.out.println("受影响的行数：" + result);
+}
+```
+
+and和or关键字使用(修改)：
+
+除非使用`or()`，否则均默认为and
+
+```Java
+@Test
+public void test04() {
+    QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+    //将年龄大于20并且用户名中包含有a或邮箱为null的用户信息修改
+    //UPDATE t_user SET age=?, email=? WHERE username LIKE ? AND age > ? OR email IS NULL)
+    queryWrapper
+            .like("username", "a")
+            .gt("age", 20)
+            .or()
+            .isNull("email");
+    User user = new User();
+    user.setAge(18);
+    user.setEmail("user@atguigu.com");
+    int result = userMapper.update(user, queryWrapper);
+    System.out.println("受影响的行数：" + result);
+}
+```
+
+指定列映射查询：
+
+```Java
+@Test
+public void test05() {
+    //查询用户信息的username和age字段
+    //SELECT username,age FROM t_user
+    QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+    queryWrapper.select("username", "age");
+    //selectMaps()返回Map集合列表，通常配合select()使用，避免User对象中没有被查询到的列值为null
+    List<Map<String, Object>> maps = userMapper.selectMaps(queryWrapper);
+    maps.forEach(System.out::println);
+}
+```
+
+condition判断组织条件:
+
+```Java
+ @Test
+public void testQuick3(){
+    
+    String name = "root";
+    int    age = 18;
+
+    QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+    //判断条件拼接
+    //当name不为null拼接等于, age > 1 拼接等于判断
+    //方案1: 手动判断
+    if (!StringUtils.isEmpty(name)){
+        queryWrapper.eq("name",name);
+    }
+    if (age > 1){
+        queryWrapper.eq("age",age);
+    }
+    
+    //方案2: 拼接condition判断
+    //每个条件拼接方法都condition参数,这是一个比较运算,为true追加当前条件!
+    //eq(condition,列名,值)
+    queryWrapper.eq(!StringUtils.isEmpty(name),"name",name)
+            .eq(age>1,"age",age);   
+}
+```
+
+较为复杂的Sql语句还是使用Xml标签编写较好。
+
+#### 基于 UpdateWrapper组装条件
+
+  使用queryWrapper:
+
+```Java
+@Test
+public void test04() {
+    QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+    //将年龄大于20并且用户名中包含有a或邮箱为null的用户信息修改
+    //UPDATE t_user SET age=?, email=? WHERE username LIKE ? AND age > ? OR email IS NULL)
+    queryWrapper
+            .like("username", "a")
+            .gt("age", 20)
+            .or()
+            .isNull("email");
+    User user = new User();
+    user.setAge(18);
+    user.setEmail("user@atguigu.com");
+    int result = userMapper.update(user, queryWrapper);
+    System.out.println("受影响的行数：" + result);
+}
+```
+
+  注意：使用queryWrapper + 实体类形式可以实现修改，但是无法将列值修改为null值！
+
+  使用updateWrapper:
+
+```Java
+@Test
+public void testQuick2(){
+
+    UpdateWrapper<User> updateWrapper = new UpdateWrapper<>();
+    //将id = 3 的email设置为null, age = 18
+    updateWrapper.eq("id",3)
+            .set("email",null)  // set 指定列和结果
+            .set("age",18);
+    //如果使用updateWrapper 实体对象写null即可!
+    int result = userMapper.update(null, updateWrapper);
+    System.out.println("result = " + result);
+
+}
+```
+
+  使用updateWrapper可以随意设置列的值。
+
+#### 基于 LambdaQueryWrapper 组装条件
+
+LambdaQueryWrapper表达式和QueryWrapper表达式的不同之处在于：QueryWrapper表达式传递的字段是字符串类型，一是容易写错，二是不便于重构；而基于LambdaQueryWrapper表达式则使用Lambda表达式表示字段，提高了代码的可读性和维护性。如下：
+
+QueryWrapper 示例代码：
+
+```Java
+QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+queryWrapper.eq("name", "John")
+  .ge("age", 18)
+  .orderByDesc("create_time")
+  .last("limit 10");
+List<User> userList = userMapper.selectList(queryWrapper);
+```
+
+LambdaQueryWrapper 示例代码：
+
+```Java
+LambdaQueryWrapper<User> lambdaQueryWrapper = new LambdaQueryWrapper<>();
+
+lambdaQueryWrapper.eq(User::getName, "John")
+  .ge(User::getAge, 18)
+  .orderByDesc(User::getCreateTime)
+  .last("limit 10");
+List<User> userList = userMapper.selectList(lambdaQueryWrapper);
+```
+
+##### Lambda表达式回顾
+
+Lambda 表达式的语法可以分为以下几个部分：
+
+1. **参数列表：** 参数列表用小括号 `()` 括起来，可以指定零个或多个参数。如果没有参数，可以省略小括号；如果只有一个参数，可以省略小括号。
+
+    示例：`(a, b)`, `x ->`, `() ->`
+2. **箭头符号：** 箭头符号 `->` 分割参数列表和 Lambda 表达式的主体部分。
+
+    示例：`->`
+3. **Lambda 表达式的主体：** Lambda 表达式的主体部分可以是一个表达式或一个代码块。如果是一个表达式，可以省略 return 关键字；如果是多条语句的代码块，需要使用大括号 `{}` 括起来，并且需要明确指定 return 关键字。
+
+    示例：
+
+    - 单个表达式：`x -> x * x`
+    - 代码块：`(x, y) -> { int sum = x + y; return sum; }`
+
+##### 方法引用
+
+Java 8 支持以下几种方法引用的形式：
+
+1. **静态方法引用：** 引用静态方法，语法为 `类名::静态方法名`。
+2. **实例方法引用：** 引用实例方法，语法为 `实例对象::实例方法名`。
+3. **对象方法引用：** 引用特定对象的实例方法，语法为 `类名::实例方法名`。
+4. **构造函数引用：** 引用构造函数，语法为 `类名::new`。
+
+#### 基于 LambdaUpdateWrapper 组装条件
+
+与 LambdaQueryWrapper 使用一样。
+
+
+
+### 核心注解
+
+#### @TableName 注解
+
+- 描述：表名注解，标识实体类对应的表
+- 使用位置：实体类
+
+```Java
+@TableName("sys_user") //对应数据库表名
+public class User {
+    private Long id;
+    private String name;
+    private Integer age;
+    private String email;
+}
+
+```
+
+特殊情况：如果表名和实体类名相同（忽略大小写）可以省略该注解！
+
+其他解决方案： [全局设置前缀](https://www.baomidou.com/pages/56bac0/#基本配置)
+
+```YAML
+mybatis-plus: # mybatis-plus的配置
+  global-config:
+    db-config:
+      table-prefix: sys_ # 表名前缀字符串
+```
+
+#### @TableId 注解
+
+- 描述：主键注解
+- 使用位置：实体类主键字段
+
+```Java
+@TableName("sys_user")
+public class User {
+    @TableId(value="主键列名",type=主键策略)
+    private Long id;
+    private String name;
+    private Integer age;
+    private String email;
+}
+
+```
+
+| 属性  | 类型   | 必须指定 | 默认值      | 描述         |
+| ----- | ------ | -------- | ----------- | ------------ |
+| value | String | 否       | ""          | 主键字段名   |
+| type  | Enum   | 否       | IdType.NONE | 指定主键类型 |
+
+[IdType](https://github.com/baomidou/mybatis-plus/blob/3.0/mybatis-plus-annotation/src/main/java/com/baomidou/mybatisplus/annotation/IdType.java)属性可选值：
+
+| 值                | 描述                                                         |
+| ----------------- | ------------------------------------------------------------ |
+| AUTO              | 数据库 ID 自增 (mysql配置主键自增长)                         |
+| ASSIGN_ID（默认） | 分配 ID(主键类型为 Number(Long )或 String)(since 3.3.0),使用接口`IdentifierGenerator`的方法`nextId`(默认实现类为`DefaultIdentifierGenerator`雪花算法) |
+
+全局配置修改主键策略:
+
+```Java
+mybatis-plus:
+  configuration:
+    # 配置MyBatis日志
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      # 配置MyBatis-Plus操作表的默认前缀
+      table-prefix: t_
+      # 配置MyBatis-Plus的主键策略
+      id-type: auto
+```
+
+在以下场景下，添加`@TableId`注解是必要的：
+
+1. 实体类的字段与数据库表的主键字段不同名：如果实体类中的字段与数据库表的主键字段不一致，需要使用`@TableId`注解来指定实体类中表示主键的字段。
+2. 主键生成策略不是默认策略：如果需要使用除了默认主键生成策略以外的策略，也需要添加`@TableId`注解，并通过`value`属性指定生成策略。
+
+#### 雪花算法
+
+所谓雪花算法就是依赖于系统时钟生成的唯一ID序号(不重复)。
+
+**需要注意的是: 雪花算法生成的数字,需要使用Long 或者 String类型主键。**
+
+#### @TableField 注解
+
+描述：字段注解（非主键）
+
+```Java
+@TableName("sys_user")
+public class User {
+    @TableId
+    private Long id;
+    @TableField("nickname")
+    private String name;
+    private Integer age;
+    private String email;
+}
+```
+
+| 属性  | 类型    | 必须指定 | 默认值 | 描述               |
+| ----- | ------- | -------- | ------ | ------------------ |
+| value | String  | 否       | ""     | 数据库字段名       |
+| exist | boolean | 否       | true   | 是否为数据库表字段 |
+
+**注意：MyBatis-Plus会自动开启驼峰命名风格映射**
+
+
+
+## 高级拓展
+
+### 逻辑删除实现
+
+**概念:**
+
+逻辑删除，可以方便地实现对数据库记录的逻辑删除而不是物理删除。逻辑删除是指通过更改记录的状态或添加标记字段来模拟删除操作，从而保留了删除前的数据，便于后续的数据分析和恢复。
+
+  - 物理删除：真实删除，将对应数据从数据库中删除，之后查询不到此条被删除的数据
+  - 逻辑删除：假删除，将对应数据中代表是否被删除字段的状态修改为“被删除状态”，之后在数据库中仍旧能看到此条数据记录
+
+**逻辑删除实现:**
+
+1. 数据库和实体类添加逻辑删除字段
+
+表添加逻辑删除字段：可以是一个布尔类型、整数类型或枚举类型。
+
+```SQL
+ALTER TABLE USER ADD deleted INT DEFAULT 0 ;  # int 类型 1 逻辑删除 0 未逻辑删除
+```
+实体类添加逻辑删除属性
+
+```java
+@Data
+public class User {
+
+   // @TableId
+    private Integer id;
+    private String name;
+    private Integer age;
+    private String email;
+    
+    @TableLogic
+    //逻辑删除字段 int mybatis-plus下,默认 逻辑删除值为1 未逻辑删除 1 
+    private Integer deleted;
+}
+
+```
+2. 指定逻辑删除字段和属性值
+
+单一指定
+
+```SQL
+@Data
+public class User {
+
+   // @TableId
+    private Integer id;
+    private String name;
+    private Integer age;
+    private String email;
+     @TableLogic
+    //逻辑删除字段 int mybatis-plus下,默认 逻辑删除值为1 未逻辑删除 1 
+    private Integer deleted;
+}
+```
+全局指定
+
+```YAML
+mybatis-plus:
+  global-config:
+    db-config:
+      logic-delete-field: deleted # 全局逻辑删除的实体字段名(since 3.3.0,配置后可以忽略不配置步骤2)
+      logic-delete-value: 1 # 逻辑已删除值(默认为 1)
+      logic-not-delete-value: 0 # 逻辑未删除值(默认为 0)
+```
+#### 逻辑删除的本质操作
+
+逻辑删除的本质上是一个对于Mybatis-Plus的特殊字段，在添加逻辑删除注解和在配置文件中添加逻辑删除配置后，当查询操作时，会默认只查询未执行逻辑删除操作的数据，而在删除操作(`deleteById`)时，也只是将目标的逻辑删除字段设置为已逻辑删除的标识。
+
+
+
+### 乐观锁实现
+
+乐观锁，与之相对的还有悲观锁；这两种锁其实都是为了解决并发问题的思想或机制。
+
+**乐观锁**认为冲突发生的概率较低，因此不需要提前加锁，而是在数据更新阶段进行冲突检测和处理。乐观锁的核心思想是"先修改，后校验"。
+
+**悲观锁**的基本思想是，在整个数据访问过程中，将共享资源锁定，以确保其他线程或进程不能同时访问和修改该资源。悲观锁的核心思想是"先保护，再修改"。
+
+
+
+#### 两种思想具体的实现技术与方案
+
+乐观锁实现方案和技术：
+- 版本号/时间戳：为数据添加一个版本号或时间戳字段，每次更新数据时，比较当前版本号或时间戳与期望值是否一致，若一致则更新成功，否则表示数据已被修改，需要进行冲突处理。
+- CAS（Compare-and-Swap）：使用原子操作比较当前值与旧值是否一致，若一致则进行更新操作，否则重新尝试。
+- 无锁数据结构：采用无锁数据结构，如无锁队列、无锁哈希表等，通过使用原子操作实现并发安全。
+
+悲观锁实现方案和技术：
+- 锁机制：使用传统的锁机制，如互斥锁（Mutex Lock）或读写锁（Read-Write Lock）来保证对共享资源的独占访问。
+- 数据库锁：在数据库层面使用行级锁或表级锁来控制并发访问。
+- 信号量（Semaphore）：使用信号量来限制对资源的并发访问。
+
+
+
+#### 乐观锁技术的实现流程
+
+- 每条数据添加一个版本号字段version
+- 取出记录时，获取当前 version
+- 更新时，检查获取版本号是不是数据库当前最新版本号
+- 如果是**证明没有人修改数据**, 执行更新, set 数据更新 , version = version+ 1 
+- 如果 version 不对**证明有人已经修改了**，我们现在的其他记录就是失效数据!就更新失败
+
+
+
+#### 使用 MyBatis-Plus 数据使用乐观锁
+
+ 1.  添加版本号更新插件
+
+```Java
+@Bean
+public MybatisPlusInterceptor mybatisPlusInterceptor() {
+    MybatisPlusInterceptor interceptor = new MybatisPlusInterceptor();
+    interceptor.addInnerInterceptor(new OptimisticLockerInnerInterceptor());
+    return interceptor;
+}
+```
+
+2. 乐观锁字段添加@Version注解
+
+​	注意: 数据库也需要添加version字段
+
+```SQL
+ALTER TABLE USER ADD VERSION INT DEFAULT 1 ;  # int 类型 乐观锁字段
+```
+
+- 支持的数据类型只有:int,Integer,long,Long,Date,Timestamp,LocalDateTime
+- 仅支持 `updateById(id)` 与 `update(entity, wrapper)` 方法
+
+```Java
+@Version
+private Integer version;
+```
+2. 正常更新使用即可
+
+```Java
+//演示乐观锁生效场景
+@Test
+public void testQuick7(){
+    //步骤1: 先查询,在更新 获取version数据
+    //同时查询两条,但是version唯一,最后更新的失败
+    User user  = userMapper.selectById(5);
+    User user1  = userMapper.selectById(5);
+
+    user.setAge(20);
+    user1.setAge(30);
+
+    userMapper.updateById(user);
+    //乐观锁生效,失败!
+    userMapper.updateById(user1);
+}
+```
+
+
+
+### 防全表更新和删除实现
+
+**针对 update 和 delete 语句 作用: 阻止恶意的全表更新删除**
+
+添加防止全表更新和删除拦截器
+
+```Java
+@Bean
+public MybatisPlusInterceptor mybatisPlusInterceptor() {
+  MybatisPlusInterceptor interceptor = new MybatisPlusInterceptor();
+  interceptor.addInnerInterceptor(new BlockAttackInnerInterceptor());
+  return interceptor;
+}
+}
+```
+
+测试全部更新或者删除
+
+```Java
+@Test
+public void testQuick8(){
+    User user = new User();
+    user.setName("custom_name");
+    user.setEmail("xxx@mail.com");
+    //Caused by: com.baomidou.mybatisplus.core.exceptions.MybatisPlusException: Prohibition of table update operation
+    //全局更新,报错
+    userService.saveOrUpdate(user,null);
+}
+```
+
+
+
+## MyBatis-Plus 代码生成器(MyBatisX插件)
+
+### MyBatisX插件逆向工程
+
+MyBatis-Plus为我们提供了强大的mapper和service模板，能够大大的提高开发效率。
+
+MyBatisX是一款基于 IDEA 的快速开发插件，为效率而生。
+
+![](./assets/image-1710584292180-3.png)
+
+![](./assets/image-1710584292180-1.png)
+
+![](./assets/image-1710584292180-2.png)
+
+
+
+### MyBatisX快速代码生成
+
+使用mybatisX插件，只要基于MyBatisX的命名方式编写方法名，即可自动生成SQL语句。
+
+官方文档：[MybatisX快速开发插件 | MyBatis-Plus ](https://baomidou.com/pages/ba5b24/)
